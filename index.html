@@ -148,6 +148,9 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
 .rowl:first-of-type{border-top:0}
 .panel textarea{width:100%;min-height:80px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px}
 .toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--text);color:var(--bg);padding:11px 16px;border-radius:14px;font-weight:800;z-index:40;display:none;max-width:90vw;text-align:center}
+.by{font-size:12.5px;color:var(--muted);font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.imgrow{display:flex;gap:12px;align-items:center}
+.thumb{display:block;width:64px;aspect-ratio:2/3;border-radius:10px;object-fit:cover;background:var(--card2);flex:none}
 .banner{margin-top:12px;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line);font-weight:600;font-size:14px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .banner a{font-weight:800;color:var(--cyan)}
 .ro .ctl,.ro .pbar+.ctl{display:none}
@@ -322,11 +325,11 @@ async function searchMedia(src,q){
   }
   if(src==="movie"){
     const j=await (await fetch("https://itunes.apple.com/search?media=movie&limit=8&term="+encodeURIComponent(q))).json();
-    return (j.results||[]).map(x=>({title:x.trackName,cover:(x.artworkUrl100||"").replace("100x100","400x600"),total:0}));
+    return (j.results||[]).map(x=>({title:x.trackName,creator:x.artistName||"",cover:(x.artworkUrl100||"").replace("100x100","400x600"),total:0}));
   }
   if(src==="book"){
     const j=await (await fetch("https://openlibrary.org/search.json?limit=8&fields=title,author_name,cover_i,number_of_pages_median&q="+encodeURIComponent(q))).json();
-    return (j.docs||[]).map(d=>({title:d.title+(d.author_name?" ("+d.author_name[0]+")":""),cover:d.cover_i?`https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg`:"",total:d.number_of_pages_median||0}));
+    return (j.docs||[]).map(d=>({title:d.title,creator:(d.author_name||[])[0]||"",cover:d.cover_i?`https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg`:"",total:d.number_of_pages_median||0}));
   }
   return [];
 }
@@ -350,7 +353,7 @@ function renderRail(){
       ${cover(i,true)}
       <div class="info">
         <button class="t" data-a="edit" data-id="${i.id}" style="text-align:left">${esc(i.title)}</button>
-        <div class="w">${c.label}${i.where?" on "+esc(i.where):""}</div>
+        <div class="w">${i.creator?"by "+esc(i.creator)+" · ":""}${c.label}${i.where?" on "+esc(i.where):""}</div>
         ${c.unit?`<div class="where-now">${i.cur||0}<small>${i.total?" / "+i.total:""} ${c.unit==="Ep"?"eps":c.unit==="Ch"?"chs":"pages"}</small></div>
         <div class="pbar"><i style="width:${pct(i)}%"></i></div>
         <div class="ctl"><button class="mini" data-a="minus" data-id="${i.id}" aria-label="Minus one">−</button><button class="plus" data-a="plus" data-id="${i.id}">+1 ${c.unit}</button>${i.link?`<a class="mini" style="display:grid;place-items:center;text-decoration:none" href="${esc(safe(i.link))}" target="_blank" rel="noopener" aria-label="Open">↗</a>`:""}</div>`
@@ -367,7 +370,7 @@ function renderFilters(){
 }
 function renderGrid(){
   const q=$("q").value.trim().toLowerCase();
-  let r=live().filter(i=>(fCat==="all"||i.cat===fCat)&&(fSt==="all"||i.status===fSt)&&(!q||[i.title,i.where,i.note].join(" ").toLowerCase().includes(q)));
+  let r=live().filter(i=>(fCat==="all"||i.cat===fCat)&&(fSt==="all"||i.status===fSt)&&(!q||[i.title,i.creator,i.where,i.note].join(" ").toLowerCase().includes(q)));
   const s=$("sort").value;
   if(s==="rating")r.sort((a,b)=>(b.rating||0)-(a.rating||0)||b.updated-a.updated);
   else if(s==="title")r.sort((a,b)=>a.title.localeCompare(b.title));
@@ -376,6 +379,7 @@ function renderGrid(){
       <button data-a="edit" data-id="${i.id}" style="display:block;width:100%">${cover(i)}</button>
       <button class="fav ${i.fav?"on":""}" data-a="fav" data-id="${i.id}" aria-label="Favorite" aria-pressed="${!!i.fav}">${i.fav?"♥":"♡"}</button>
       <div class="tt">${esc(i.title)}</div>
+      ${i.creator?`<div class="by">${esc(i.creator)}</div>`:""}
       <div class="mm"><span class="st ${i.status}">${stL(i.status)}</span>${i.rating?`<span>★ ${i.rating}</span>`:""}${progText(i)&&i.status==="progress"?`<span>${progText(i)}</span>`:""}${i.where?`<span>${esc(i.where)}</span>`:""}</div>
     </div>`).join(""):
     `<div class="empty"><b>${live().length?"Nothing here":"Your shelf is empty"}</b>${live().length?"Try another filter or search.":"Tap + Add, search a title, and its cover shows up."}</div>`;
@@ -435,7 +439,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
 
 function edit(id){
   const it=id?all.find(x=>x.id===id):null;
-  draft=it?{...it}:{id:nid(),title:"",cat:fCat!=="all"?fCat:"anime",status:"want",cur:0,total:0,rating:0,fav:false,where:"",link:"",cover:"",note:"",added:Date.now(),_new:true};
+  draft=it?{...it}:{id:nid(),title:"",cat:fCat!=="all"?fCat:"anime",status:"want",cur:0,total:0,rating:0,fav:false,where:"",creator:"",link:"",cover:"",note:"",added:Date.now(),_new:true};
   found=[];drawEdit();
 }
 function drawEdit(){
@@ -447,6 +451,7 @@ function drawEdit(){
     ${c.src?`<div class="hint">Tap Find to grab the cover and total ${c.unit==="Ep"?"episodes":c.unit==="Ch"?"chapters":c.unit==="Pg"?"pages":"info"}.</div>`:""}
     <div class="results" id="results">${found.map((r,k)=>`<button class="res" data-pick="${k}">${r.cover?`<img src="${esc(r.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:`<span class="noimg"></span>`}<span>${esc(r.title)}</span></button>`).join("")}</div>
   </div>
+  <div class="f"><label for="eBy">Creator (writer, director, channel)</label><input id="eBy" value="${esc(d.creator)}" autocomplete="off" placeholder="e.g. Makoto Yukimura"></div>
   <div class="f"><span class="lbl">Status</span><div class="seg">${STATUS.map(x=>`<button data-k="status" data-v="${x.id}" aria-pressed="${x.id===d.status}">${x.label}</button>`).join("")}</div></div>
   ${c.unit?`<div class="two">
     <div class="f"><label for="eCur">${c.unit} now</label><div class="stepper"><button data-step="-1" aria-label="Minus one">−</button><input id="eCur" type="number" inputmode="numeric" min="0" value="${d.cur||0}"><button data-step="1" aria-label="Plus one">+</button></div></div>
@@ -458,6 +463,11 @@ function drawEdit(){
     <div class="seg" style="margin-top:4px">${(PLATFORMS[d.cat]||[]).map(p=>`<button data-k="where" data-v="${esc(p)}" aria-pressed="${p===d.where}">${esc(p)}</button>`).join("")}</div>
   </div>
   <div class="f"><label for="eLink">Link (optional)</label><input id="eLink" type="url" inputmode="url" value="${esc(d.link)}" placeholder="https://"></div>
+  <div class="f"><span class="lbl">Image</span>
+    <div class="imgrow">${d.cover?`<img class="thumb" src="${esc(d.cover)}" alt="" referrerpolicy="no-referrer">`:`<span class="thumb"></span>`}
+    <div class="seg"><button data-img="link">Fetch from link</button><button data-img="up">Upload</button>${d.cover?`<button data-img="rm">Remove</button>`:""}</div></div>
+    <input id="eFile" type="file" accept="image/*" hidden>
+    <div class="hint">Paste the link above, then tap Fetch to grab the image and author. Or upload your own.</div></div>
   <div class="f"><span class="lbl">Rating</span><div class="rates">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-k="rating" data-v="${n}" aria-pressed="${d.rating===n}">${n}</button>`).join("")}</div></div>
   <div class="f"><span class="lbl">Favorite</span><div class="seg"><button data-k="fav" aria-pressed="${!!d.fav}">${d.fav?"♥ Loved it":"♡ Mark as loved"}</button></div></div>
   <div class="f"><label for="eNote">Review or notes</label><textarea id="eNote" placeholder="What you loved, where you paused, anything">${esc(d.note)}</textarea></div>
@@ -471,12 +481,31 @@ function readEdit(){
   const d=draft;if(!d)return;
   d.title=$("eTitle").value.trim();
   if($("eCur")){d.cur=Math.max(0,+$("eCur").value||0);d.total=Math.max(0,+$("eTot").value||0)}
-  d.where=$("eWhere").value.trim();d.link=$("eLink").value.trim();d.note=$("eNote").value.trim();
+  d.creator=$("eBy").value.trim();d.where=$("eWhere").value.trim();d.link=$("eLink").value.trim();d.note=$("eNote").value.trim();
 }
 $("sheet").addEventListener("click",async e=>{
   const b=e.target.closest("button");if(!b)return;
   if(b.id==="setSave"||b.id==="setOff"||b.id==="setSyncNow")return; // handled in sync sheet
   if(!draft)return;
+  if(b.dataset.img){
+    readEdit();const m=b.dataset.img;
+    if(m==="up"){$("eFile").click();return}
+    if(m==="rm")draft.cover="";
+    if(m==="link"){
+      if(!safe(draft.link)){toast("Paste a link first");return}
+      b.textContent="…";
+      try{
+        const j=await (await fetch("https://api.microlink.io/?url="+encodeURIComponent(draft.link))).json();
+        const x=j.data||{};
+        if(x.image&&x.image.url)draft.cover=x.image.url;
+        if(x.author&&!draft.creator)draft.creator=x.author;
+        if(!draft.title&&x.title)draft.title=x.title;
+        if(!draft.where&&x.publisher)draft.where=x.publisher;
+        toast(x.image?"Image added":"No image found. Try Upload.");
+      }catch(err){toast("Couldn’t fetch. Try Upload.")}
+    }
+    const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;return;
+  }
   if(b.dataset.k){
     readEdit();const k=b.dataset.k,v=b.dataset.v;
     if(k==="cat"){draft.cat=v;found=[]}
@@ -496,7 +525,7 @@ $("sheet").addEventListener("click",async e=>{
   }
   if(b.dataset.pick!=null){
     readEdit();const r=found[+b.dataset.pick];
-    draft.title=r.title;draft.cover=r.cover;if(r.total)draft.total=r.total;
+    draft.title=r.title;draft.cover=r.cover;if(r.creator)draft.creator=r.creator;if(r.total)draft.total=r.total;
     if(r.tvId){try{const eps=await (await fetch(`https://api.tvmaze.com/shows/${r.tvId}/episodes`)).json();draft.total=eps.length||draft.total}catch(err){}}
     found=[];const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;toast("Cover added");return;
   }
@@ -517,6 +546,7 @@ function detail(id){
   const i=all.find(x=>x.id===id);if(!i)return;const c=cat(i.cat);
   openSheet(`<div style="display:flex;gap:14px"><div style="width:110px;flex:none">${cover(i,true)}</div>
     <div style="min-width:0"><h2 style="margin-bottom:6px">${esc(i.title)}</h2>
+    ${i.creator?`<div class="by" style="white-space:normal">by ${esc(i.creator)}</div>`:""}
     <div class="hint">${c.label}${i.where?" on "+esc(i.where):""}</div>
     <div style="margin-top:8px;font-weight:700"><span class="st ${i.status}">${stL(i.status)}</span>${i.rating?` · ★ ${i.rating}/10`:""}${i.fav?" · ♥":""}</div>
     ${progText(i)?`<div class="hint" style="margin-top:4px">${progText(i)}</div>`:""}</div></div>
@@ -534,6 +564,26 @@ async function loadShared(){
     render();
   }catch(e){$("bannerTxt").textContent="Couldn’t load this shelf. Check the link.";}
 }
+
+function shrink(file){
+  return new Promise((res,rej)=>{
+    const u=URL.createObjectURL(file),im=new Image();
+    im.onload=()=>{
+      const k=Math.min(1,420/Math.max(im.width,1),630/Math.max(im.height,1));
+      const c=document.createElement("canvas");c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));
+      c.getContext("2d").drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);
+      res(c.toDataURL("image/jpeg",.78));
+    };
+    im.onerror=rej;im.src=u;
+  });
+}
+$("sheet").addEventListener("change",async e=>{
+  if(e.target.id!=="eFile"||!draft)return;
+  const f=e.target.files[0];if(!f)return;
+  readEdit();
+  try{draft.cover=await shrink(f);toast("Image added")}catch(err){toast("Couldn’t read that image")}
+  const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;
+});
 
 /* ================= sheet: sync settings ================= */
 function syncSheet(){
