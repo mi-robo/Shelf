@@ -161,6 +161,30 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
 .imgrow{display:flex;gap:12px;align-items:center}
 .thumb{display:block;width:64px;aspect-ratio:2/3;border-radius:10px;object-fit:cover;background:var(--card2);flex:none}
 .credit{text-align:center;color:var(--muted);font-size:12.5px;font-weight:600;padding:36px 0 0;opacity:.8}
+.recap{border-radius:22px;padding:18px;margin-top:14px;background:linear-gradient(145deg,color-mix(in srgb,var(--pink) 28%,var(--card)),color-mix(in srgb,var(--cyan) 22%,var(--card)));border:1px solid var(--line)}
+.rk{font-weight:800;font-size:14px;color:var(--muted)}
+.rk b{color:var(--text)}
+.rbig{font-family:var(--head);font-weight:800;font-size:58px;line-height:1;margin:10px 0 2px}
+.rbig small{font-size:16px;font-weight:600;font-family:var(--body);color:var(--muted)}
+.rcats{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.rcats span{display:inline-flex;gap:6px;align-items:center;padding:5px 10px;border-radius:999px;background:color-mix(in srgb,var(--bg) 55%,transparent);font-weight:700;font-size:13px}
+.rcats i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.mb{display:flex;gap:4px;align-items:flex-end;margin-top:18px}
+.bc{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;font-size:10px;color:var(--muted);font-weight:700}
+.bc b{color:var(--text);font-size:10px;height:12px}
+.bc i{display:block;width:100%;background:color-mix(in srgb,var(--text) 24%,transparent);border-radius:5px 5px 2px 2px}
+.bc i.hi{background:var(--grad)}
+.strip{display:flex;gap:6px;margin-top:16px;overflow:hidden}
+.sc{width:52px;flex:none}
+.sc .cv{border-radius:8px}
+.sc .ph{padding:4px}
+.sc .ph b{font-size:7px;-webkit-line-clamp:5}
+.rfoot{display:flex;justify-content:space-between;margin-top:14px;font-size:12px;color:var(--muted);font-weight:700}
+.rctl{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px}
+.rctl b{font-family:var(--head);font-weight:500;font-size:15px}
+.rseg{display:flex;gap:6px;margin-top:12px}
+.rseg button{flex:1;padding:9px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-weight:800;font-size:13.5px}
+.rseg button[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
 .banner{margin-top:12px;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line);font-weight:600;font-size:14px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .banner a{font-weight:800;color:var(--cyan)}
 .ro .ctl,.ro .pbar+.ctl{display:none}
@@ -251,6 +275,20 @@ const PLATFORMS={
 };
 const KEY="omishelf.v2", KTOK="omishelf.token", KGIST="omishelf.gist", KTHEME="omishelf.theme";
 const FILE="omishelf.json";
+
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const pad=n=>String(n).padStart(2,"0");
+const ymd=ts=>{if(!ts)return"";const d=new Date(ts);return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate())};
+const parseYmd=v=>v?new Date(v+"T12:00:00").getTime():0;
+const fmtD=ts=>new Date(ts).toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});
+function isDone(i){return !!i.doneAt&&(i.status==="completed"||i.status==="reviewed")}
+function datesLine(i){
+  if(!i.startedAt&&!i.doneAt)return"";
+  let t=(i.startedAt?"Started "+fmtD(i.startedAt):"")+(i.startedAt&&i.doneAt?" · ":"")+(i.doneAt&&isDone(i)?"Finished "+fmtD(i.doneAt):"");
+  if(i.startedAt&&isDone(i)&&i.doneAt>=i.startedAt)t+=" · "+Math.max(1,Math.round((i.doneAt-i.startedAt)/864e5))+" days";
+  return t;
+}
+let rMode="month",rY=new Date().getFullYear(),rM=new Date().getMonth();
 
 /* ================= state ================= */
 let sharedName="";
@@ -415,7 +453,7 @@ function renderGrid(){
       <button class="fav ${i.fav?"on":""}" data-a="fav" data-id="${i.id}" aria-label="Favorite" aria-pressed="${!!i.fav}">${i.fav?"♥":"♡"}</button>
       <div class="tt">${esc(i.title)}</div>
       ${i.creator?`<div class="by">${esc(i.creator)}</div>`:""}
-      <div class="mm"><span class="st ${i.status}">${stL(i.status)}</span>${i.rating?`<span>★ ${i.rating}</span>`:""}${progText(i)&&i.status==="progress"?`<span>${progText(i)}</span>`:""}${i.where?`<span>${esc(i.where)}</span>`:""}</div>
+      <div class="mm"><span class="st ${i.status}">${stL(i.status)}</span>${i.rating?`<span>★ ${i.rating}</span>`:""}${progText(i)&&i.status==="progress"?`<span>${progText(i)}</span>`:""}${i.where?`<span>${esc(i.where)}</span>`:""}${isDone(i)?`<span>${MON[new Date(i.doneAt).getMonth()]} ${new Date(i.doneAt).getFullYear()}</span>`:""}</div>
     </div>`).join(""):
     `<div class="empty"><b>${live().length?"Nothing here":"Your shelf is empty"}</b>${live().length?"Try another filter or search.":"Tap + Add, search a title, and its cover shows up."}</div>`;
   // progress strips on covers
@@ -423,6 +461,50 @@ function renderGrid(){
 }
 
 /* ================= render: stats ================= */
+function inP(ts){const d=new Date(ts);return rMode==="all"||(d.getFullYear()===rY&&(rMode==="year"||d.getMonth()===rM))}
+function recapHTML(){
+  const D=live().filter(isDone);
+  const P=D.filter(i=>inP(i.doneAt)).sort((a,b)=>b.doneAt-a.doneAt);
+  const nm=readOnly?sharedName:getName();
+  const label=rMode==="all"?"All time":rMode==="year"?String(rY):MON[rM]+" "+rY;
+  const undated=live().filter(i=>(i.status==="completed"||i.status==="reviewed")&&!i.doneAt).length;
+  const rated=P.filter(i=>i.rating),avg=rated.length?(rated.reduce((a,b)=>a+b.rating,0)/rated.length).toFixed(1):"";
+  const cats=CATS.map(c=>({c,n:P.filter(i=>i.cat===c.id).length})).filter(x=>x.n);
+  let cols=[];
+  if(rMode==="all"){
+    const ys=D.map(i=>new Date(i.doneAt).getFullYear());
+    if(ys.length){const hi=Math.max(...ys),lo=Math.max(Math.min(...ys),hi-7);for(let y=lo;y<=hi;y++)cols.push({l:String(y).slice(2),n:D.filter(i=>new Date(i.doneAt).getFullYear()===y).length,hi:false})}
+  }else{
+    for(let m=0;m<12;m++)cols.push({l:MON[m][0],n:D.filter(i=>{const d=new Date(i.doneAt);return d.getFullYear()===rY&&d.getMonth()===m}).length,hi:rMode==="year"||m===rM});
+  }
+  const mx=Math.max(1,...cols.map(c=>c.n));
+  return `<div class="rseg" role="group" aria-label="Recap period">
+      <button data-r="month" aria-pressed="${rMode==="month"}">Month</button>
+      <button data-r="year" aria-pressed="${rMode==="year"}">Year</button>
+      <button data-r="all" aria-pressed="${rMode==="all"}">All time</button>
+    </div>
+    ${rMode==="all"?"":`<div class="rctl"><button class="mini" data-r="prev" aria-label="Previous">‹</button><b>${label}</b><button class="mini" data-r="next" aria-label="Next">›</button></div>`}
+    <div class="recap" id="recap">
+      <div class="rk">${nm?"<b>"+esc(nm)+"’s</b> ":""}${label}</div>
+      <div class="rbig">${P.length}<small> finished${avg?" · ★ "+avg+" avg":""}</small></div>
+      ${cats.length?`<div class="rcats">${cats.map(x=>`<span style="--c:${x.c.c}"><i></i>${x.n} ${x.c.label}</span>`).join("")}</div>`:`<div class="hint" style="margin-top:10px">Nothing finished in this period yet.</div>`}
+      ${cols.length?`<div class="mb">${cols.map(c=>`<div class="bc"><b>${c.n||""}</b><i class="${c.hi?"hi":""}" style="height:${Math.max(3,Math.round(c.n/mx*56))}px"></i><span>${c.l}</span></div>`).join("")}</div>`:""}
+      ${P.length?`<div class="strip">${P.slice(0,10).map(i=>`<div class="sc">${cover(i,true)}</div>`).join("")}</div>`:""}
+      <div class="rfoot"><span>Mi Robo Shelf</span><span>${P.length?"Take a screenshot to share":""}</span></div>
+    </div>
+    ${undated&&!readOnly?`<div class="hint" style="margin-top:8px">${undated} finished item${undated>1?"s have":" has"} no date. Open ${undated>1?"them":"it"} and set Finished to count in the recap.</div>`:""}`;
+}
+$("stats").addEventListener("click",e=>{
+  const b=e.target.closest("[data-r]");if(!b)return;
+  const v=b.dataset.r;
+  if(v==="month"||v==="year"||v==="all")rMode=v;
+  else{
+    const d=v==="next"?1:-1;
+    if(rMode==="year")rY+=d;
+    else{rM+=d;if(rM<0){rM=11;rY--}if(rM>11){rM=0;rY++}}
+  }
+  renderStats();
+});
 function renderStats(){
   const L=live(),n=s=>L.filter(i=>i.status===s).length;
   const rated=L.filter(i=>i.rating);
@@ -435,7 +517,7 @@ function renderStats(){
   const plat={};L.forEach(i=>{if(i.where)plat[i.where]=(plat[i.where]||0)+1});
   const plats=Object.entries(plat).sort((a,b)=>b[1]-a[1]).slice(0,6);
   const top=[...rated].sort((a,b)=>b.rating-a.rating||b.updated-a.updated).slice(0,5);
-  $("stats").innerHTML=`
+  $("stats").innerHTML=recapHTML()+`
   <div class="sgrid">
     <div class="sbox"><b>${L.length}</b><span>On shelf</span></div>
     <div class="sbox"><b>${n("progress")}</b><span>In progress</span></div>
@@ -505,6 +587,10 @@ function drawEdit(){
     <div class="hint">Paste the link above, then tap Fetch to grab the image and author. Or upload your own.</div></div>
   <div class="f"><span class="lbl">Rating</span><div class="rates">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-k="rating" data-v="${n}" aria-pressed="${d.rating===n}">${n}</button>`).join("")}</div></div>
   <div class="f"><span class="lbl">Favorite</span><div class="seg"><button data-k="fav" aria-pressed="${!!d.fav}">${d.fav?"♥ Loved it":"♡ Mark as loved"}</button></div></div>
+  <div class="two">
+    <div class="f"><label for="eStart">Started</label><input id="eStart" type="date" value="${ymd(d.startedAt)}"></div>
+    <div class="f"><label for="eEnd">Finished</label><input id="eEnd" type="date" value="${ymd(d.doneAt)}"></div>
+  </div>
   <div class="f"><label for="eNote">Review or notes</label><textarea id="eNote" placeholder="What you loved, where you paused, anything">${esc(d.note)}</textarea></div>
   <div class="actions">
     ${d._new?"":`<button class="btn danger" id="delBtn">Delete</button>`}
@@ -516,7 +602,7 @@ function readEdit(){
   const d=draft;if(!d)return;
   d.title=$("eTitle").value.trim();
   if($("eCur")){d.cur=Math.max(0,+$("eCur").value||0);d.total=Math.max(0,+$("eTot").value||0)}
-  d.creator=$("eBy").value.trim();d.where=$("eWhere").value.trim();d.link=$("eLink").value.trim();d.note=$("eNote").value.trim();
+  d.creator=$("eBy").value.trim();d.startedAt=parseYmd($("eStart").value);d.doneAt=parseYmd($("eEnd").value);d.where=$("eWhere").value.trim();d.link=$("eLink").value.trim();d.note=$("eNote").value.trim();
 }
 $("sheet").addEventListener("click",async e=>{
   const b=e.target.closest("button");if(!b)return;
@@ -577,7 +663,8 @@ $("sheet").addEventListener("click",async e=>{
     if(d.total&&d.cur>=d.total&&d.status==="progress")d.status="completed";
     if(d.cur>0&&d.status==="want")d.status="progress";
     if(d.rating&&d.status==="completed")d.status="reviewed";
-    if((d.status==="completed"||d.status==="reviewed")&&!d.doneAt)d.doneAt=Date.now();
+    if(d.status==="completed"||d.status==="reviewed"){if(!d.doneAt)d.doneAt=Date.now()}else d.doneAt=0;
+    if((d.status==="progress"||d.cur>0)&&!d.startedAt)d.startedAt=Date.now();
     delete d._new;closeSheet();put(d);toast("Saved");
   }
 });
@@ -590,7 +677,8 @@ function detail(id){
     ${i.creator?`<div class="by" style="white-space:normal">by ${esc(i.creator)}</div>`:""}
     <div class="hint">${c.label}${i.where?" on "+esc(i.where):""}</div>
     <div style="margin-top:8px;font-weight:700"><span class="st ${i.status}">${stL(i.status)}</span>${i.rating?` · ★ ${i.rating}/10`:""}${i.fav?" · ♥":""}</div>
-    ${progText(i)?`<div class="hint" style="margin-top:4px">${progText(i)}</div>`:""}</div></div>
+    ${progText(i)?`<div class="hint" style="margin-top:4px">${progText(i)}</div>`:""}
+    ${datesLine(i)?`<div class="hint" style="margin-top:4px">${datesLine(i)}</div>`:""}</div></div>
     ${i.note?`<p style="margin:14px 0 0;white-space:pre-wrap">${esc(i.note)}</p>`:""}
     ${safe(i.link)?`<div class="actions" style="margin-top:14px"><a class="btn main link" style="justify-content:center" href="${esc(safe(i.link))}" target="_blank" rel="noopener">Open ↗</a></div>`:""}`);
 }
@@ -687,7 +775,7 @@ async function quick(e){
   if(a==="fav")n.fav=!n.fav;
   if(a==="minus")n.cur=Math.max(0,(+n.cur||0)-1);
   if(a==="plus"){
-    n.cur=(+n.cur||0)+1;if(n.status!=="progress")n.status="progress";
+    n.cur=(+n.cur||0)+1;if(n.status!=="progress")n.status="progress";if(!n.startedAt)n.startedAt=Date.now();
     if(n.total&&n.cur>=n.total){n.cur=n.total;n.status="completed";n.doneAt=Date.now();toast("Finished “"+n.title+"”! Rate it?")}
   }
   if(a==="done"){n.status="completed";n.doneAt=Date.now();toast("Nice! Tap it to rate.")}
