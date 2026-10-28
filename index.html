@@ -5,7 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0c0a14">
 <title>Mi Robo Shelf</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Shelf">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><text y='.9em' font-size='90'>📚</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;800&family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
@@ -724,10 +730,14 @@ $("sheet").addEventListener("change",async e=>{
 });
 
 /* ================= sheet: sync settings ================= */
+let installEvt=null;
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installEvt=e});
+window.addEventListener("appinstalled",()=>{installEvt=null;toast("Installed!")});
+if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 function syncSheet(){
   draft=null;
   const on=!!tok();
-  openSheet(`<h2>Your shelf</h2>
+  openSheet(`${installEvt?`<div class="actions" style="margin:0 0 14px"><button class="btn main" id="installBtn">Install app</button></div>`:""}<h2>Your shelf</h2>
   <div class="f"><label for="nameIn">Your name (shows under the logo)</label>
     <div class="finder"><input id="nameIn" value="${esc(getName())}" placeholder="Your name" autocomplete="given-name"><button class="go" id="nameSave">Save</button></div></div>
   <h2 style="margin-top:8px">Sync across devices</h2>
@@ -748,6 +758,7 @@ function syncSheet(){
 }
 $("sheet").addEventListener("click",async e=>{
   const b=e.target.closest("button");if(!b)return;
+  if(b.id==="installBtn"&&installEvt){installEvt.prompt();try{await installEvt.userChoice}catch(err){}installEvt=null;closeSheet();return}
   if(b.id==="nameSave"){setName($("nameIn").value.trim());toast("Name saved");return}
   if(b.id==="setSave"){
     const t=$("tokIn").value.trim();if(!t){toast("Paste your token first");return}
