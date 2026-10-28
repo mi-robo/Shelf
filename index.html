@@ -196,15 +196,52 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
 .ro .ctl,.ro .pbar+.ctl{display:none}
 .ro .fav{pointer-events:none}
 .ro #stats .panel:last-child{display:none}
+.side-h{display:none}
+#stF{margin-top:8px}
+@media (min-width:1100px){
+  body{font-size:16px}
+  header{display:grid;grid-template-columns:250px 1fr auto auto;align-items:center;column-gap:10px;padding-top:22px;padding-bottom:16px}
+  .top{display:contents}
+  .top>div:first-child{order:0}
+  .tabs{order:1;margin:0 0 0 30px}
+  #themeBtn,#syncBtn{order:2;width:46px;height:46px;font-size:19px}
+  .logo{font-size:30px}
+  .who{font-size:14.5px;margin-top:8px}
+  .av{width:28px;height:28px;font-size:14px}
+  .tabs button{font-size:16px;padding:10px 20px}
+  #lib{display:grid;grid-template-columns:250px minmax(0,1fr);column-gap:40px;align-items:start}
+  #lib>*{grid-column:2}
+  #lib>.side{grid-column:1;grid-row:1 / span 50;position:sticky;top:calc(env(safe-area-inset-top,0px) + 112px);padding-top:26px;max-height:calc(100vh - 120px);overflow-y:auto;scrollbar-width:thin}
+  .side-h{display:block;font-family:var(--head);font-weight:500;font-size:12px;color:var(--muted);margin:0 0 8px 12px;letter-spacing:.08em}
+  .side .filters{flex-direction:column;overflow:visible;gap:2px;margin-bottom:24px}
+  #stF{margin-top:0}
+  .side .chip{width:100%;border:0;background:transparent;padding:9px 12px;border-radius:12px;font-size:15px;justify-content:flex-start}
+  .side .chip b{margin-left:auto;color:var(--muted)}
+  .side .chip:hover{background:var(--card)}
+  .side .chip[aria-pressed="true"]{background:var(--card);color:var(--text);box-shadow:inset 3px 0 0 var(--pink)}
+  .side .chip[aria-pressed="true"] b{color:var(--text)}
+  .sec-title{font-size:24px;margin:28px 0 16px}
+  .sec-title small{font-size:14px}
+  .cont{width:390px;padding:12px;gap:16px;border-radius:20px}
+  .cont .cv{width:100px}
+  .cont .t{font-size:17px}
+  .cont .w{font-size:13.5px}
+  .cont .where-now{font-size:26px}
+  .plus,.mini{height:40px}
+  .bar2 input,.bar2 select{padding:13px 16px;font-size:16px}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:28px 22px;margin-top:22px}
+  .tile .tt{font-size:16px}
+  .tile .mm,.by{font-size:13.5px}
+  .badge{font-size:12.5px;padding:4px 10px}
+  .fab{height:60px;padding:0 26px;font-size:17px;right:28px;bottom:28px}
+  #stats{max-width:1100px;margin:0 auto}
+  .sgrid{grid-template-columns:repeat(4,1fr)}
+  .sbox b{font-size:34px}
+  .panel h3,.rseg button{font-size:16px}
+}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){.sheet,.scrim{transition:none}}
 @media (min-width:700px){.grid{grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:18px}}
-@media (min-width:1100px){
-  .grid{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:22px}
-  .cont{width:320px}
-  .sgrid{grid-template-columns:repeat(4,1fr)}
-  .bar2 input{max-width:none}
-}
 </style>
 </head>
 <body>
@@ -233,8 +270,12 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
       <div class="rail" id="rail"></div>
     </section>
     <h2 class="sec-title">Everything</h2>
-    <div class="filters" id="catF"></div>
-    <div class="filters" id="stF" style="margin-top:8px"></div>
+    <div class="side">
+      <div class="side-h">CATEGORIES</div>
+      <div class="filters" id="catF"></div>
+      <div class="side-h">STATUS</div>
+      <div class="filters" id="stF"></div>
+    </div>
     <div class="bar2">
       <input id="q" type="search" placeholder="Search title, platform, notes" aria-label="Search">
       <select id="sort" aria-label="Sort">
