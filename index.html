@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0c0a14">
-<title>Omi’s Shelf</title>
+<title>Mi Robo Shelf</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;800&family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
@@ -38,7 +38,16 @@ a{color:inherit}
 /* header */
 header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);padding:14px 0 10px;margin:0 -16px;padding-left:16px;padding-right:16px}
 .top{display:flex;align-items:center;gap:10px}
-.logo{font-family:var(--head);font-weight:800;font-size:22px;letter-spacing:-.01em;flex:1;white-space:nowrap}
+.logo{font-family:var(--head);font-weight:800;font-size:20px;letter-spacing:-.01em;white-space:nowrap}
+.who{display:inline-flex;align-items:center;gap:8px;margin-top:6px;padding:3px 13px 3px 3px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-weight:800;font-size:13.5px;max-width:100%}
+.who span{color:var(--muted);font-weight:600}
+.av,.hav{border-radius:50%;background:var(--grad);color:#120c1c;display:grid;place-items:center;font-family:var(--head);font-weight:800;flex:none}
+.av{width:24px;height:24px;font-size:12px}
+.hero{display:flex;gap:14px;align-items:center;margin-top:14px;padding:16px;border-radius:20px;background:linear-gradient(135deg,color-mix(in srgb,var(--pink) 22%,var(--card)),color-mix(in srgb,var(--cyan) 18%,var(--card)));border:1px solid var(--line)}
+.hav{width:56px;height:56px;font-size:24px}
+.hero h2{font-family:var(--head);font-weight:800;font-size:20px;margin:0;line-height:1.15;word-break:break-word}
+.hstats{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px;color:var(--muted);font-weight:700;font-size:13px}
+.hstats b{color:var(--text)}
 .logo span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .icon-btn{width:40px;height:40px;border-radius:12px;background:var(--card);border:1px solid var(--line);display:grid;place-items:center;font-size:17px;position:relative}
 .icon-btn .d{position:absolute;top:7px;right:7px;width:8px;height:8px;border-radius:50%;background:var(--muted)}
@@ -151,14 +160,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
 .by{font-size:12.5px;color:var(--muted);font-weight:600;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .imgrow{display:flex;gap:12px;align-items:center}
 .thumb{display:block;width:64px;aspect-ratio:2/3;border-radius:10px;object-fit:cover;background:var(--card2);flex:none}
-.welcome{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-items:center;padding:24px;overflow-y:auto}
-.wbox{max-width:420px;width:100%;display:grid;gap:14px;text-align:center}
-.wbox h1{font-family:var(--head);font-weight:800;font-size:34px;line-height:1.1;margin:0}
-.wbox h1 span{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
-.wbox p{margin:0;color:var(--muted);font-weight:600}
-.wbox input{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;text-align:center;font-weight:700;width:100%}
-.wbox .btn{width:100%}
-.wlink{color:var(--muted);font-weight:700;font-size:14px;text-decoration:underline;padding:6px}
+.credit{text-align:center;color:var(--muted);font-size:12.5px;font-weight:600;padding:36px 0 0;opacity:.8}
 .banner{margin-top:12px;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line);font-weight:600;font-size:14px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .banner a{font-weight:800;color:var(--cyan)}
 .ro .ctl,.ro .pbar+.ctl{display:none}
@@ -173,7 +175,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
 <div class="wrap">
   <header>
     <div class="top">
-      <div class="logo" id="logo">My <span>Shelf</span></div>
+      <div style="flex:1;min-width:0"><div class="logo" id="logo">Mi Robo <span>Shelf</span></div><div class="who" id="who" hidden><i class="av" id="av" style="font-style:normal"></i><b id="whoName"></b><span>collection</span></div></div>
       <button class="icon-btn" id="themeBtn" aria-label="Switch theme">◐</button>
       <button class="icon-btn" id="syncBtn" aria-label="Sync settings">☁<span class="d" id="syncDot"></span></button>
     </div>
@@ -186,6 +188,10 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
   <div class="banner" id="banner" hidden><span id="bannerTxt">Viewing a shared shelf (read only)</span><a href="./">Start my own shelf</a></div>
 
   <main id="lib">
+    <section class="hero" id="hero" hidden>
+      <div class="hav" id="hAv"></div>
+      <div style="min-width:0"><h2 id="hName"></h2><div class="hstats" id="hStats"></div></div>
+    </section>
     <section id="contSec">
       <h2 class="sec-title">Continue <small id="contCount"></small></h2>
       <div class="rail" id="rail"></div>
@@ -205,21 +211,12 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
   </main>
 
   <main id="stats" hidden></main>
+  <footer class="credit">Built by Mi Robo</footer>
 </div>
 
 <button class="fab" id="addBtn">+ Add</button>
 <div class="scrim" id="scrim"></div>
 <div class="sheet" id="sheet" role="dialog" aria-modal="true"></div>
-<div class="welcome" id="welcome" hidden>
-  <div class="wbox">
-    <h1>Every show, book and read.<br><span>One shelf.</span></h1>
-    <p>Track anime, manga, series, movies, books and essays. Know where you left off, where to watch, and what you loved.</p>
-    <input id="wName" placeholder="Your name" autocomplete="given-name" aria-label="Your name">
-    <button class="btn main" id="wStart">Start my own shelf</button>
-    <button class="btn" id="wSee" hidden>See Omi’s shelf first</button>
-    <button class="wlink" id="wSync">I already have a shelf (sync)</button>
-  </div>
-</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -256,9 +253,6 @@ const KEY="omishelf.v2", KTOK="omishelf.token", KGIST="omishelf.gist", KTHEME="o
 const FILE="omishelf.json";
 
 /* ================= state ================= */
-/* Paste the code after "?u=" from YOUR share link here, so visitors can see your shelf */
-const SHOWCASE="";
-const KSTART="omishelf.started";
 let sharedName="";
 const SHARE=new URLSearchParams(location.search).get("u");
 const readOnly=!!SHARE;
@@ -273,8 +267,16 @@ const getName=()=>{const p=all.find(i=>i.id==="__profile");return p&&p.name?p.na
 function setName(n){const p=all.find(x=>x.id==="__profile")||{id:"__profile"};put({...p,name:n,deleted:false})}
 function renderTitle(){
   const n=readOnly?sharedName:getName();
-  $("logo").innerHTML=(n?esc(n)+"’s":"My")+" <span>Shelf</span>";
-  document.title=(n?n+"’s":"My")+" Shelf";
+  $("who").hidden=!n;
+  if(n){const ini=(Array.from(n)[0]||"").toUpperCase();$("av").textContent=ini;$("whoName").textContent=n+"’s";
+    $("hero").hidden=!readOnly;
+    if(readOnly){
+      const L=live(),r=L.filter(i=>i.rating),avg=r.length?(r.reduce((a,b)=>a+b.rating,0)/r.length).toFixed(1):"–";
+      $("hAv").textContent=ini;$("hName").textContent=n+"’s shelf";
+      $("hStats").innerHTML=`<span><b>${L.filter(i=>i.status==="completed"||i.status==="reviewed").length}</b> finished</span><span><b>${L.filter(i=>i.status==="progress").length}</b> in progress</span><span><b>${avg}</b> avg rating</span>`;
+    }
+  }else $("hero").hidden=true;
+  document.title=(n?n+"’s ":"")+"Mi Robo Shelf";
   if(readOnly&&n)$("bannerTxt").textContent="Viewing "+n+"’s shelf (read only)";
 }
 const $=id=>document.getElementById(id);
@@ -317,7 +319,7 @@ async function findOrCreateGist(){
   const list=await gh("/gists?per_page=100");
   const g=list.find(x=>x.files&&x.files[FILE]);
   if(g){id=g.id}else{
-    const c=await gh("/gists",{method:"POST",body:JSON.stringify({description:"Omi’s Shelf data",public:false,files:{[FILE]:{content:JSON.stringify(all)}}})});
+    const c=await gh("/gists",{method:"POST",body:JSON.stringify({description:"Mi Robo Shelf data",public:false,files:{[FILE]:{content:JSON.stringify(all)}}})});
     id=c.id;
   }
   ls.set(KGIST,id);return id;
@@ -638,7 +640,7 @@ function syncSheet(){
   draft=null;
   const on=!!tok();
   openSheet(`<h2>Your shelf</h2>
-  <div class="f"><label for="nameIn">Your name (shows in the title)</label>
+  <div class="f"><label for="nameIn">Your name (shows under the logo)</label>
     <div class="finder"><input id="nameIn" value="${esc(getName())}" placeholder="Your name" autocomplete="given-name"><button class="go" id="nameSave">Save</button></div></div>
   <h2 style="margin-top:8px">Sync across devices</h2>
   ${on?`<p class="hint">Connected to GitHub. Your shelf saves to a private Gist and syncs every time you change something or reopen the page.</p>
@@ -706,14 +708,6 @@ $("themeBtn").onclick=()=>{const t=document.documentElement.dataset.theme==="lig
 
 /* ================= start ================= */
 applyTheme(ls.get(KTHEME)||"dark");
-$("wStart").onclick=()=>{
-  const n=$("wName").value.trim();
-  ls.set(KSTART,"1");$("welcome").hidden=true;
-  if(n)setName(n);
-};
-$("wSee").onclick=()=>{location.href=location.pathname+"?u="+SHOWCASE};
-$("wSync").onclick=()=>{ls.set(KSTART,"1");$("welcome").hidden=true;syncSheet()};
-$("wName").addEventListener("keydown",e=>{if(e.key==="Enter")$("wStart").click()});
 if(readOnly){
   document.body.classList.add("ro");
   $("addBtn").hidden=true;$("syncBtn").hidden=true;$("banner").hidden=false;
@@ -721,10 +715,6 @@ if(readOnly){
 }else{
   loadLocal();render();
   if(tok())sync();else dot("");
-  if(!tok()&&!ls.get(KSTART)&&!live().length&&!getName()){
-    $("welcome").hidden=false;
-    if(SHOWCASE)$("wSee").hidden=false;
-  }
 }
 </script>
 </body>
