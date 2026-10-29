@@ -119,6 +119,10 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
 .scrim.open{opacity:1;pointer-events:auto}
 .sheet{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:620px;max-height:92%;overflow-y:auto;background:var(--bg2);border:1px solid var(--line);border-bottom:0;border-radius:24px 24px 0 0;padding:10px 18px calc(22px + env(safe-area-inset-bottom,0px));z-index:21;transform:translateY(105%);transition:transform .25s ease}
 .sheet.open{transform:none}
+.seasontot{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:11px 12px;font-weight:800;min-height:44px}
+.sgrid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px}
+.sbox2{display:grid;gap:4px;font-size:12px;color:var(--muted);font-weight:800}
+.sbox2 input{padding:9px 6px;text-align:center}
 .xbtn{position:sticky;top:6px;float:right;width:38px;height:38px;border-radius:50%;background:var(--card2);border:1px solid var(--line);display:grid;place-items:center;font-size:16px;font-weight:800;z-index:3}
 .grab{width:42px;height:5px;border-radius:9px;background:var(--line);margin:0 auto 12px}
 .sheet h2{font-family:var(--head);font-weight:800;font-size:20px;margin:0 0 14px}
@@ -448,7 +452,7 @@ async function searchMedia(src,q){
   }
   if(src==="tv"){
     const j=await (await fetch("https://api.tvmaze.com/search/shows?q="+encodeURIComponent(q))).json();
-    return j.slice(0,8).map(x=>({title:x.show.name,cover:x.show.image?.medium||"",tvId:x.show.id,total:0}));
+    return j.slice(0,8).map(x=>({title:x.show.name,cover:x.show.image?.medium||"",tvId:x.show.id,running:x.show.status==="Running",total:0}));
   }
   if(src==="movie"){
     const j=await (await fetch("https://itunes.apple.com/search?media=movie&limit=8&term="+encodeURIComponent(q))).json();
@@ -467,7 +471,40 @@ function cover(i,small){
   const c=cat(i.cat);
   return `<span class="cv" style="--c:${c.c}">${i.cover?`<img src="${esc(i.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:""}${i.cover?"":`<span class="ph"><b>${esc(i.title)}</b></span>`}${small?"":`<span class="badge">${c.label}</span>`}</span>`;
 }
-function seasonTxt(i){const c=cat(i.cat);if(!c.seasons||!(i.season||i.seasons))return"";return "Season "+(i.season||1)+(i.seasons?" of "+i.seasons:"")}
+function syncTotal(d){
+  if(!cat(d.cat).seasons||!d.useSeasons)return;
+  const a=d.seasonEps;if(!a||!a.length)return;
+  const sn=Math.max(1,d.season||1);
+  while(a.length<sn)a.push(0);
+  d.season=sn;d.seasons=a.length;d.total=+a[sn-1]||0;
+}
+function migrate(d){
+  if(!cat(d.cat).seasons)return;
+  if((!d.seasonEps||!d.seasonEps.length)&&d.seasons>0)d.seasonEps=Array.from({length:d.seasons},(_,k)=>k+1===(d.season||1)?(+d.total||0):0);
+  d.seasonEps=d.seasonEps?[...d.seasonEps]:[];
+  if(d.seasonEps.length&&d.useSeasons===undefined)d.useSeasons=true;
+  const l=d.seasonEps;
+  if(d.sv!==2)while(l.length>1&&!(+l[l.length-1])&&(d.season||1)<l.length){l.pop();d.ongoing=true}
+}
+function resizeSeasons(d,n){
+  n=Math.min(60,Math.max(1,n|0));const l=d.seasonEps;
+  while(l.length<n)l.push(0);while(l.length>n)l.pop();
+  if((d.season||1)>n)d.season=n;
+}
+const parseSeasons=t=>String(t||"").split(/[,\s]+/).filter(x=>x!=="").slice(0,60).map(x=>/^\d+$/.test(x)?+x:0);
+function baseOf(i){
+  const l=i.seasonEps;
+  if(l&&l.length){let b=0;for(let k=0;k<(i.season||1)-1;k++)b+=+l[k]||0;return b}
+  return +i.base||0;
+}
+function caughtUp(i){
+  const l=i.seasonEps;if(!cat(i.cat).seasons||!i.useSeasons||!l||!l.length)return 0;
+  const sn=i.season||1;
+  if(!(i.total&&i.cur>=i.total))return 0;
+  if(sn<l.length)return +l[sn]>0?0:sn+1;
+  return i.ongoing?sn+1:0;
+}
+function seasonTxt(i){const c=cat(i.cat);if(!c.seasons||!(i.season||i.seasons))return"";return "Season "+(i.season||1)+(i.seasons?" of "+i.seasons+(i.ongoing?"+":""):"")}
 function progText(i){const c=cat(i.cat);if(!c.unit)return"";const sn=c.seasons&&(i.season||i.seasons)?`S${i.season||1}${i.seasons?"/"+i.seasons:""} · `:"";return sn+`${c.unit} ${i.cur||0}${i.total?" / "+i.total:""}`}
 function pct(i){return i.total?Math.min(100,Math.round((i.cur||0)/i.total*100)):0}
 
@@ -483,6 +520,7 @@ function renderRail(){
         <button class="t" data-a="edit" data-id="${i.id}" style="text-align:left">${esc(i.title)}</button>
         <div class="w">${i.creator?"by "+esc(i.creator)+" · ":""}${c.label}${i.where?" on "+esc(i.where):""}</div>
         ${seasonTxt(i)?`<div class="w" style="color:var(--cyan);font-weight:800">${seasonTxt(i)}</div>`:""}
+        ${caughtUp(i)?`<div class="w" style="color:var(--gold);font-weight:800">Caught up · Season ${caughtUp(i)} coming</div>`:""}
         ${c.unit?`<div class="where-now">${i.cur||0}<small>${i.total?" / "+i.total:""} ${unitWord(c.unit)}</small></div>
         <div class="pbar"><i style="width:${pct(i)}%"></i></div>
         <div class="ctl"><button class="mini" data-a="minus" data-id="${i.id}" aria-label="Minus one">−</button><button class="plus" data-a="plus" data-id="${i.id}">+1 ${c.unit}</button>${i.link?`<a class="mini" style="display:grid;place-items:center;text-decoration:none" href="${esc(safe(i.link))}" target="_blank" rel="noopener" aria-label="Open">↗</a>`:""}</div>`
@@ -567,7 +605,7 @@ function renderStats(){
   const avg=rated.length?(rated.reduce((a,b)=>a+b.rating,0)/rated.length).toFixed(1):"–";
   const yr=new Date().getFullYear();
   const yrDone=L.filter(i=>i.doneAt&&new Date(i.doneAt).getFullYear()===yr&&(i.status==="completed"||i.status==="reviewed")).length;
-  const eps=L.filter(i=>cat(i.cat).unit==="Ep").reduce((a,b)=>a+(+b.cur||0)+(+b.base||0),0);
+  const eps=L.filter(i=>cat(i.cat).unit==="Ep").reduce((a,b)=>a+(+b.cur||0)+baseOf(b),0);
   const chs=L.filter(i=>i.cat==="manga").reduce((a,b)=>a+(+b.cur||0),0);
   const mx=Math.max(1,...CATS.map(c=>L.filter(i=>i.cat===c.id).length));
   const plat={};L.forEach(i=>{if(i.where)plat[i.where]=(plat[i.where]||0)+1});
@@ -624,11 +662,13 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
 
 function edit(id){
   const it=id?all.find(x=>x.id===id):null;
-  draft=it?{...it}:{id:nid(),title:"",cat:fCat!=="all"?fCat:"anime",status:"want",cur:0,total:0,rating:0,fav:false,where:"",creator:"",link:"",cover:"",note:"",added:Date.now(),_new:true};
+  draft=it?{...it,seasonEps:it.seasonEps?[...it.seasonEps]:[]}:{id:nid(),title:"",cat:fCat!=="all"?fCat:"anime",status:"want",cur:0,total:0,rating:0,fav:false,where:"",creator:"",link:"",cover:"",note:"",added:Date.now(),_new:true};
   found=[];drawEdit();
 }
 function drawEdit(){
   const d=draft,c=cat(d.cat);
+  if(c.seasons){migrate(d);d.sv=2}
+  const hasSE=!!(c.seasons&&d.useSeasons&&d.seasonEps&&d.seasonEps.length);
   openSheet(`<h2>${d._new?"Add to shelf":"Edit"}</h2>
   <div class="f"><span class="lbl">Category</span><div class="seg">${CATS.map(x=>`<button data-k="cat" data-v="${x.id}" aria-pressed="${x.id===d.cat}">${x.label}</button>`).join("")}</div></div>
   <div class="f"><label for="eTitle">Title</label>
@@ -638,13 +678,19 @@ function drawEdit(){
   </div>
   <div class="f"><label for="eBy">Creator (writer, director, channel)</label><input id="eBy" value="${esc(d.creator)}" autocomplete="off" placeholder="e.g. Makoto Yukimura"></div>
   <div class="f"><span class="lbl">Status</span><div class="seg">${STATUS.map(x=>`<button data-k="status" data-v="${x.id}" aria-pressed="${x.id===d.status}">${x.label}</button>`).join("")}</div></div>
+  ${c.seasons?`<div class="f"><span class="lbl">Does it have seasons?</span>
+    <div class="seg"><button data-k="useSeasons" data-v="1" aria-pressed="${!!d.useSeasons}">Yes</button><button data-k="useSeasons" data-v="0" aria-pressed="${!d.useSeasons}">No</button></div></div>
+  ${d.useSeasons?`<div class="f"><label for="eSeasonCount">How many seasons are out?</label>
+    <div class="stepper"><button data-scount="-1" aria-label="Fewer seasons">−</button><input id="eSeasonCount" type="number" inputmode="numeric" min="1" value="${Math.max(1,d.seasonEps.length)}"><button data-scount="1" aria-label="More seasons">+</button></div>
+    <div class="seg" style="margin-top:8px"><button data-k="ongoing" aria-pressed="${!!d.ongoing}">${d.ongoing?"✓ More seasons coming":"Still airing? Tap if more seasons are coming"}</button></div></div>
+  <div class="f"><span class="lbl">Episodes in each season</span>
+    <div class="sgrid2">${d.seasonEps.map((v,k)=>`<label class="sbox2">Season ${k+1}<input data-sidx="${k}" type="number" inputmode="numeric" min="0" value="${v||""}" placeholder="Eps"></label>`).join("")}</div></div>
+  <div class="f"><span class="lbl">Which season are you on?</span>
+    <div class="seg">${d.seasonEps.map((v,k)=>`<button data-season="${k+1}" aria-pressed="${(d.season||1)===k+1}">S${k+1}</button>`).join("")}</div></div>`:""}`:""}
   ${c.unit?`<div class="two">
-    <div class="f"><label for="eCur">${c.unit} now</label><div class="stepper"><button data-step="-1" aria-label="Minus one">−</button><input id="eCur" type="number" inputmode="numeric" min="0" value="${d.cur||0}"><button data-step="1" aria-label="Plus one">+</button></div></div>
-    <div class="f"><label for="eTot">Total (0 = ongoing)</label><input id="eTot" type="number" inputmode="numeric" min="0" value="${d.total||0}"></div>
-  </div>`:""}
-  ${c.seasons?`<div class="two">
-    <div class="f"><label for="eSeason">Season now</label><div class="stepper"><button data-sstep="-1" aria-label="Previous season">−</button><input id="eSeason" type="number" inputmode="numeric" min="0" value="${d.season||0}"><button data-sstep="1" aria-label="Next season">+</button></div></div>
-    <div class="f"><label for="eSeasons">Total seasons (0 = unknown)</label><input id="eSeasons" type="number" inputmode="numeric" min="0" value="${d.seasons||0}"></div>
+    <div class="f"><label for="eCur">${c.unit} now${hasSE?" (in S"+(d.season||1)+")":""}</label><div class="stepper"><button data-step="-1" aria-label="Minus one">−</button><input id="eCur" type="number" inputmode="numeric" min="0" value="${d.cur||0}"><button data-step="1" aria-label="Plus one">+</button></div></div>
+    ${hasSE?`<div class="f"><span class="lbl">Episodes in S${d.season||1}</span><div class="seasontot">${d.total?d.total:"Not out yet"}</div><input id="eTot" type="hidden" value="${d.total||0}"></div>`
+    :`<div class="f"><label for="eTot">Total (0 = ongoing)</label><input id="eTot" type="number" inputmode="numeric" min="0" value="${d.total||0}"></div>`}
   </div>`:""}
   <div class="f"><label for="eWhere">Where</label>
     <input id="eWhere" list="platList" value="${esc(d.where)}" placeholder="Netflix, YouTube, Substack…" autocomplete="off">
@@ -674,7 +720,13 @@ function readEdit(){
   const d=draft;if(!d)return;
   d.title=$("eTitle").value.trim();
   if($("eCur")){d.cur=Math.max(0,+$("eCur").value||0);d.total=Math.max(0,+$("eTot").value||0)}
-  if($("eSeason")){d.season=Math.max(0,+$("eSeason").value||0);d.seasons=Math.max(0,+$("eSeasons").value||0)}
+  if($("eSeasonCount")){
+    const boxes=[...$("sheet").querySelectorAll("[data-sidx]")];
+    d.seasonEps=boxes.map(x=>Math.max(0,+x.value||0));
+    resizeSeasons(d,+$("eSeasonCount").value||1);
+    if(!d.season)d.season=1;
+    syncTotal(d);
+  }
   d.creator=$("eBy").value.trim();d.startedAt=parseYmd($("eStart").value);d.doneAt=parseYmd($("eEnd").value);d.where=$("eWhere").value.trim();d.link=$("eLink").value.trim();d.note=$("eNote").value.trim();
 }
 $("sheet").addEventListener("click",async e=>{
@@ -697,10 +749,32 @@ $("sheet").addEventListener("click",async e=>{
   if(b.dataset.k){
     readEdit();const k=b.dataset.k,v=b.dataset.v;
     if(k==="cat"){draft.cat=v;found=[]}
+    if(k==="useSeasons"){
+      draft.useSeasons=v==="1";
+      if(draft.useSeasons){if(!draft.seasonEps.length){draft.seasonEps=[+draft.total||0];draft.season=1}syncTotal(draft)}
+      else{draft.seasonEps=[];draft.season=0;draft.seasons=0;draft.ongoing=false}
+    }
+    if(k==="ongoing")draft.ongoing=!draft.ongoing;
     if(k==="status")draft.status=v;
     if(k==="where")draft.where=draft.where===v?"":v;
     if(k==="rating"){const n=+v;draft.rating=draft.rating===n?0:n}
     if(k==="fav")draft.fav=!draft.fav;
+    const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;return;
+  }
+  if(b.dataset.scount){
+    readEdit();resizeSeasons(draft,draft.seasonEps.length+(+b.dataset.scount));syncTotal(draft);
+    const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;return;
+  }
+  if(b.dataset.season){
+    readEdit();draft.season=+b.dataset.season;syncTotal(draft);
+    if(draft.total&&draft.cur>draft.total)draft.cur=draft.total;
+    const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;return;
+  }
+  if(b.dataset.sadd||b.dataset.srem){
+    readEdit();
+    if(b.dataset.sadd){if(!draft.seasonEps.length)draft.seasonEps=[+draft.total||0];else draft.seasonEps.push(0)}
+    else{draft.seasonEps.pop();if((draft.season||1)>draft.seasonEps.length)draft.season=Math.max(0,draft.seasonEps.length)}
+    syncTotal(draft);
     const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;return;
   }
   if(b.dataset.sstep){const inp=$("eSeason");inp.value=Math.max(0,(+inp.value||0)+(+b.dataset.sstep));return}
@@ -715,14 +789,14 @@ $("sheet").addEventListener("click",async e=>{
   if(b.dataset.pick!=null){
     readEdit();const r=found[+b.dataset.pick];
     draft.title=r.title;draft.cover=r.cover;if(r.creator)draft.creator=r.creator;if(r.total)draft.total=r.total;
-    if(r.tvId){try{const eps=await (await fetch(`https://api.tvmaze.com/shows/${r.tvId}/episodes`)).json();const ms=Math.max(0,...eps.map(e=>e.season||0));const s1=eps.filter(e=>e.season===1).length;if(ms){draft.seasons=ms;draft.season=draft.season||1;if(s1)draft.total=s1}else draft.total=eps.length||draft.total}catch(err){}}
+    if(r.tvId){try{const eps=await (await fetch(`https://api.tvmaze.com/shows/${r.tvId}/episodes`)).json();const ms=Math.max(0,...eps.map(e=>e.season||0));const s1=eps.filter(e=>e.season===1).length;if(ms){draft.useSeasons=true;draft.seasonEps=Array.from({length:ms},(_,k)=>eps.filter(e=>e.season===k+1).length);draft.ongoing=!!r.running;{const l=draft.seasonEps;while(l.length>1&&!l[l.length-1]){l.pop();draft.ongoing=true}}draft.season=draft.season||1;syncTotal(draft)}else draft.total=eps.length||draft.total}catch(err){}}
     found=[];const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;toast("Cover added");return;
   }
   if(b.id==="delBtn"){const id=draft.id;closeSheet();del(id);toast("Deleted");return}
   if(b.id==="saveBtn"){
     readEdit();const d=draft;
     if(!d.title){toast("Add a title first");$("eTitle").focus();return}
-    if(d.total&&d.cur>=d.total&&d.status==="progress"&&!(cat(d.cat).seasons&&d.seasons&&(d.season||1)<d.seasons))d.status="completed";
+    if(d.total&&d.cur>=d.total&&d.status==="progress"&&!(cat(d.cat).seasons&&d.useSeasons&&((d.season||1)<(d.seasons||0)||d.ongoing)))d.status="completed";
     if(d.cur>0&&d.status==="want")d.status="progress";
     if(d.rating&&d.status==="completed")d.status="reviewed";
     if(d.status==="completed"||d.status==="reviewed"){if(!d.doneAt)d.doneAt=Date.now()}else d.doneAt=0;
@@ -820,6 +894,7 @@ function shrink(file){
   });
 }
 $("sheet").addEventListener("change",async e=>{
+  if(draft&&(e.target.id==="eSeasonCount"||e.target.dataset.sidx!==undefined)){readEdit();const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;return}
   if(e.target.id==="eLink"&&draft){
     readEdit();
     if(!safe(draft.link)||draft.title)return;
@@ -892,17 +967,29 @@ async function quick(e){
   if(a==="edit"){readOnly?detail(it.id):edit(it.id);return}
   if(readOnly)return;
   const n={...it};
+  if(cat(n.cat).seasons)migrate(n);
+  const list=n.seasonEps&&n.seasonEps.length?n.seasonEps:null;
   if(a==="fav")n.fav=!n.fav;
   if(a==="minus"){
-    if((+n.cur||0)===0&&cat(n.cat).seasons&&(n.season||1)>1&&n.total){n.season=(n.season||1)-1;n.cur=n.total;n.base=Math.max(0,(n.base||0)-n.total)}
+    if((+n.cur||0)===0&&list&&(n.season||1)>1){n.season=(n.season||1)-1;syncTotal(n);n.cur=n.total}
     else n.cur=Math.max(0,(+n.cur||0)-1);
   }
   if(a==="plus"){
+    const sn=n.season||1;
+    if(list&&n.total&&n.cur>=n.total){
+      if(sn<list.length){
+        if(+list[sn]>0){n.season=sn+1;syncTotal(n);n.cur=0}
+        else{toast("Add the episode count for Season "+(sn+1)+" first");return}
+      }else if(n.ongoing){toast("You’re caught up! Add Season "+(sn+1)+" when it’s out.");return}
+    }
     n.cur=(+n.cur||0)+1;if(n.status!=="progress")n.status="progress";if(!n.startedAt)n.startedAt=Date.now();
     if(n.total&&n.cur>=n.total){
-      if(cat(n.cat).seasons&&n.seasons&&(n.season||1)<n.seasons){
-        n.base=(n.base||0)+n.total;n.season=(n.season||1)+1;n.cur=0;toast("Season "+n.season+" started");
-      }else{n.cur=n.total;n.status="completed";n.doneAt=Date.now();toast("Finished “"+n.title+"”! Rate it?")}
+      const s2=n.season||1;
+      if(list&&s2<list.length){
+        if(+list[s2]>0){n.season=s2+1;syncTotal(n);n.cur=0;toast("Season "+(s2+1)+" started")}
+        else toast("Season "+s2+" done! Add Season "+(s2+1)+"’s episode count.");
+      }else if(list&&n.ongoing){toast("You’re caught up! More seasons coming.")}
+      else{n.cur=n.total;n.status="completed";n.doneAt=Date.now();toast("Finished “"+n.title+"”! Rate it?")}
     }
   }
   if(a==="done"){n.status="completed";n.doneAt=Date.now();toast("Nice! Tap it to rate.")}
