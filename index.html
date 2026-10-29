@@ -313,8 +313,8 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
 /* ================= config ================= */
 const CATS=[
   {id:"anime",label:"Anime",unit:"Ep",c:"#ff4f8b",src:"anime",seasons:true},
-  {id:"manga",label:"Manga",unit:"Ch",c:"#ff8a3d",src:"manga"},
-  {id:"series",label:"Series/Playlist",unit:"Ep",c:"#3e8bff",src:"tv",seasons:true},
+  {id:"manga",label:"Manga & Co",unit:"Ch",c:"#ff8a3d",src:"manga"},
+  {id:"series",label:"Series",unit:"Ep",c:"#3e8bff",src:"tv",seasons:true},
   {id:"movie",label:"Movies",unit:"",c:"#9b5bff",src:"movie"},
   {id:"video",label:"Videos",unit:"",c:"#9bdc3a",src:""},
   {id:"book",label:"Books",unit:"Pg",c:"#2fbf85",src:"book"},
@@ -330,7 +330,7 @@ const STATUS=[
 ];
 const PLATFORMS={
   anime:["Crunchyroll","Netflix","YouTube","Prime Video","Bilibili","HiAnime"],
-  manga:["MangaDex","Webtoon","Manga Plus","Tachiyomi","Physical copy"],
+  manga:["MangaDex","Webtoon","Manga Plus","Tapas","Tappytoon","Kakao","Tachiyomi","Physical copy"],
   series:["Netflix","Prime Video","Disney+","Hoichoi","Chorki","YouTube"],
   movie:["Netflix","Prime Video","Disney+","Hoichoi","Chorki","YouTube","Cinema"],
   video:["YouTube","Vimeo","Nebula","TikTok","Instagram"],
@@ -452,10 +452,10 @@ document.addEventListener("visibilitychange",()=>{if(document.visibilityState===
 /* ================= cover search ================= */
 async function searchMedia(src,q){
   if(src==="anime"||src==="manga"){
-    const query=`query($s:String){Page(perPage:8){media(search:$s,type:${src==="anime"?"ANIME":"MANGA"},sort:SEARCH_MATCH){title{english romaji}coverImage{large}episodes chapters}}}`;
+    const query=`query($s:String){Page(perPage:8){media(search:$s,type:${src==="anime"?"ANIME":"MANGA"},sort:SEARCH_MATCH){title{english romaji}coverImage{large}episodes chapters countryOfOrigin format}}}`;
     const r=await fetch("https://graphql.anilist.co",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({query,variables:{s:q}})});
     const j=await r.json();
-    return (j.data?.Page?.media||[]).map(m=>({title:m.title.english||m.title.romaji,cover:m.coverImage?.large||"",total:(src==="anime"?m.episodes:m.chapters)||0}));
+    return (j.data?.Page?.media||[]).map(m=>({title:m.title.english||m.title.romaji,cover:m.coverImage?.large||"",total:(src==="anime"?m.episodes:m.chapters)||0,...(src==="manga"?(()=>{const k=m.format==="NOVEL"?"Novel":({KR:"Manhwa",CN:"Manhua",TW:"Manhua",JP:"Manga"}[m.countryOfOrigin]||"");return{kind:k,sub:k}})():{})}));
   }
   if(src==="tv"){
     const j=await (await fetch("https://api.tvmaze.com/search/shows?q="+encodeURIComponent(q))).json();
@@ -578,7 +578,7 @@ function renderRail(){
       ${cover(i,true)}
       <div class="info">
         <button class="t" data-a="edit" data-id="${i.id}" style="text-align:left">${esc(i.title)}</button>
-        <div class="w">${i.creator?"by "+esc(i.creator)+" · ":""}${c.label}${i.where?" on "+esc(i.where):""}</div>
+        <div class="w">${i.creator?"by "+esc(i.creator)+" · ":""}${i.kind&&i.cat==="manga"?esc(i.kind):c.label}${i.where?" on "+esc(i.where):""}</div>
         ${seasonTxt(i)?`<div class="w" style="color:var(--cyan);font-weight:800">${seasonTxt(i)}</div>`:""}
         ${caughtUp(i)?`<div class="w" style="color:var(--gold);font-weight:800">Caught up · Season ${caughtUp(i)} coming</div>`:""}
         ${c.unit?`<div class="where-now">${i.cur||0}<small>${i.total?" / "+i.total:""} ${unitWord(c.unit)}</small></div>
@@ -597,7 +597,7 @@ function renderFilters(){
 }
 function renderGrid(){
   const q=$("q").value.trim().toLowerCase();
-  let r=live().filter(i=>(fCat==="all"||i.cat===fCat)&&(fSt==="all"||i.status===fSt)&&(!q||[i.title,i.creator,i.where,i.note].join(" ").toLowerCase().includes(q)));
+  let r=live().filter(i=>(fCat==="all"||i.cat===fCat)&&(fSt==="all"||i.status===fSt)&&(!q||[i.title,i.creator,i.kind,i.where,i.note].join(" ").toLowerCase().includes(q)));
   const s=$("sort").value;
   if(s==="rating")r.sort((a,b)=>(b.rating||0)-(a.rating||0)||b.updated-a.updated);
   else if(s==="title")r.sort((a,b)=>a.title.localeCompare(b.title));
@@ -607,7 +607,7 @@ function renderGrid(){
       <button class="fav ${i.fav?"on":""}" data-a="fav" data-id="${i.id}" aria-label="Favorite" aria-pressed="${!!i.fav}">${i.fav?"♥":"♡"}</button>
       <div class="tt">${esc(i.title)}</div>
       ${i.creator?`<div class="by">${esc(i.creator)}</div>`:""}
-      <div class="mm"><span class="st ${i.status}">${stL(i.status)}</span>${i.rating?`<span>★ ${i.rating}</span>`:""}${progText(i)&&i.status==="progress"?`<span>${progText(i)}</span>`:""}${i.where?`<span>${esc(i.where)}</span>`:""}${isDone(i)?`<span>${MON[new Date(i.doneAt).getMonth()]} ${new Date(i.doneAt).getFullYear()}</span>`:""}</div>
+      <div class="mm"><span class="st ${i.status}">${stL(i.status)}</span>${i.rating?`<span>★ ${i.rating}</span>`:""}${progText(i)&&i.status==="progress"?`<span>${progText(i)}</span>`:""}${i.where?`<span>${esc(i.where)}</span>`:""}${i.kind&&i.cat==="manga"?`<span>${esc(i.kind)}</span>`:""}${isDone(i)?`<span>${MON[new Date(i.doneAt).getMonth()]} ${new Date(i.doneAt).getFullYear()}</span>`:""}</div>
     </div>`).join(""):
     `<div class="empty"><b>${live().length?"Nothing here":"Your shelf is empty"}</b>${live().length?"Try another filter or search.":"Tap + Add, search a title, and its cover shows up."}</div>`;
   // progress strips on covers
@@ -746,6 +746,7 @@ function drawEdit(){
     <div class="results" id="results">${found.map((r,k)=>`<button class="res" data-pick="${k}">${r.cover?`<img src="${esc(r.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:`<span class="noimg"></span>`}<span>${esc(r.title)}${r.year?" ("+esc(r.year)+")":""}</span>${r.sub?`<span style="color:var(--muted);font-weight:500">${esc(r.sub)}</span>`:""}</button>`).join("")}</div>
   </div>
   <div class="f"><label for="eBy">Creator (writer, director, channel)</label><input id="eBy" value="${esc(d.creator)}" autocomplete="off" placeholder="e.g. Makoto Yukimura"></div>
+  ${c.id==="manga"?`<div class="f"><span class="lbl">Type</span><div class="seg">${["Manga","Manhwa","Manhua","Webtoon","Novel"].map(t=>`<button data-k="kind" data-v="${t}" aria-pressed="${d.kind===t}">${t}</button>`).join("")}</div></div>`:""}
   <div class="f"><span class="lbl">Status</span><div class="seg">${STATUS.map(x=>`<button data-k="status" data-v="${x.id}" aria-pressed="${x.id===d.status}">${x.label}</button>`).join("")}</div></div>
   ${c.seasons?`<div class="f"><span class="lbl">Does it have seasons?</span>
     <div class="seg"><button data-k="useSeasons" data-v="1" aria-pressed="${!!d.useSeasons}">Yes</button><button data-k="useSeasons" data-v="0" aria-pressed="${!d.useSeasons}">No</button></div></div>
@@ -824,6 +825,7 @@ $("sheet").addEventListener("click",async e=>{
       else{draft.seasonEps=[];draft.season=0;draft.seasons=0;draft.ongoing=false}
     }
     if(k==="ongoing")draft.ongoing=!draft.ongoing;
+    if(k==="kind")draft.kind=draft.kind===v?"":v;
     if(k==="status")draft.status=v;
     if(k==="where")draft.where=draft.where===v?"":v;
     if(k==="rating"){const n=+v;draft.rating=draft.rating===n?0:n}
@@ -857,7 +859,7 @@ $("sheet").addEventListener("click",async e=>{
   }
   if(b.dataset.pick!=null){
     readEdit();const r=found[+b.dataset.pick];
-    draft.title=r.title;draft.cover=r.cover;if(r.creator)draft.creator=r.creator;if(r.link&&!draft.link)draft.link=r.link;if(r.where&&!draft.where)draft.where=r.where;if(r.total)draft.total=r.total;
+    draft.title=r.title;draft.cover=r.cover;if(r.creator)draft.creator=r.creator;if(r.kind)draft.kind=r.kind;if(r.link&&!draft.link)draft.link=r.link;if(r.where&&!draft.where)draft.where=r.where;if(r.total)draft.total=r.total;
     if(r.tvId){try{const eps=await (await fetch(`https://api.tvmaze.com/shows/${r.tvId}/episodes`)).json();const ms=Math.max(0,...eps.map(e=>e.season||0));const s1=eps.filter(e=>e.season===1).length;if(ms){draft.useSeasons=true;draft.seasonEps=Array.from({length:ms},(_,k)=>eps.filter(e=>e.season===k+1).length);draft.ongoing=!!r.running;{const l=draft.seasonEps;while(l.length>1&&!l[l.length-1]){l.pop();draft.ongoing=true}}draft.season=draft.season||1;syncTotal(draft)}else draft.total=eps.length||draft.total}catch(err){}}
     found=[];const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;toast("Cover added");return;
   }
@@ -880,7 +882,7 @@ function detail(id){
   openSheet(`<div style="display:flex;gap:14px"><div style="width:110px;flex:none">${cover(i,true)}</div>
     <div style="min-width:0"><h2 style="margin-bottom:6px">${esc(i.title)}</h2>
     ${i.creator?`<div class="by" style="white-space:normal">by ${esc(i.creator)}</div>`:""}
-    <div class="hint">${c.label}${i.where?" on "+esc(i.where):""}</div>
+    <div class="hint">${i.kind&&i.cat==="manga"?esc(i.kind):c.label}${i.where?" on "+esc(i.where):""}</div>
     <div style="margin-top:8px;font-weight:700"><span class="st ${i.status}">${stL(i.status)}</span>${i.rating?` · ★ ${i.rating}/10`:""}${i.fav?" · ♥":""}</div>
     ${progText(i)?`<div class="hint" style="margin-top:4px">${progText(i)}</div>`:""}
     ${seasonTxt(i)?`<div class="hint" style="margin-top:4px">${seasonTxt(i)}</div>`:""}
@@ -897,7 +899,7 @@ function hasMine(i){
 function copyToMine(i){
   const mine=mineList(),now=Date.now();
   const c={id:nid(),title:i.title,creator:i.creator||"",cat:i.cat,status:"want",cur:0,total:+i.total||0,rating:0,fav:false,
-    where:i.where||"",link:safe(i.link),cover:i.cover||"",note:"",added:now,updated:now};
+    where:i.where||"",kind:i.kind||"",link:safe(i.link),cover:i.cover||"",note:"",added:now,updated:now};
   if(i.useSeasons&&Array.isArray(i.seasonEps)&&i.seasonEps.length){
     c.useSeasons=true;c.sv=2;c.seasonEps=i.seasonEps.map(v=>+v||0);c.ongoing=!!i.ongoing;c.season=1;c.seasons=c.seasonEps.length;c.total=c.seasonEps[0]||0;
   }
