@@ -270,7 +270,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
     </div>
   </header>
 
-  <div class="banner" id="banner" hidden><span id="bannerTxt">Viewing a shared shelf (read only)</span><a href="./">Start my own shelf</a></div>
+  <div class="banner" id="banner" hidden><span id="bannerTxt">Viewing a shared shelf. Tap any item to add it to yours.</span><a href="./">Open my shelf</a></div>
 
   <main id="lib">
     <section class="hero" id="hero" hidden>
@@ -380,7 +380,7 @@ function renderTitle(){
     }
   }else $("hero").hidden=true;
   document.title=(n?n+"’s ":"")+"Mi Robo Shelf";
-  if(readOnly&&n)$("bannerTxt").textContent="Viewing "+n+"’s shelf (read only)";
+  if(readOnly&&n)$("bannerTxt").textContent="Viewing "+n+"’s shelf. Tap any item to add it to yours.";
 }
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -642,7 +642,16 @@ function renderStats(){
     const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="omishelf-backup.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   };
   $("impBtn").onclick=()=>{
-    try{const arr=JSON.parse($("impTxt").value);if(!Array.isArray(arr))throw 0;merge(arr);saveLocal();render();schedulePush();toast("Imported "+arr.length+" items");$("impTxt").value=""}
+    try{
+      const arr=JSON.parse($("impTxt").value);if(!Array.isArray(arr))throw 0;
+      const now=Date.now();let k=0;
+      for(const it of arr){
+        if(!it||!it.id||!it.title||it.deleted)continue;
+        const c={...it};delete c.deleted;c.updated=now+k;k++;
+        const i=all.findIndex(x=>x.id===c.id);if(i>=0)all[i]=c;else all.push(c);
+      }
+      saveLocal();render();schedulePush();toast("Restored "+k+" items");$("impTxt").value="";
+    }
     catch(e){toast("That backup doesn’t look right")}
   };
 }
@@ -824,23 +833,30 @@ function detail(id){
     ${seasonTxt(i)?`<div class="hint" style="margin-top:4px">${seasonTxt(i)}</div>`:""}
     ${datesLine(i)?`<div class="hint" style="margin-top:4px">${datesLine(i)}</div>`:""}</div></div>
     ${i.note?`<p style="margin:14px 0 0;white-space:pre-wrap">${esc(i.note)}</p>`:""}
-    ${safe(i.link)?`<div class="actions" style="margin-top:14px"><a class="btn main link" style="justify-content:center" href="${esc(safe(i.link))}" target="_blank" rel="noopener">Open ↗</a></div>`:""}`);
+    ${safe(i.link)?`<div class="actions" style="margin-top:14px"><a class="btn link" style="justify-content:center;flex:1" href="${esc(safe(i.link))}" target="_blank" rel="noopener">Open ↗</a></div>`:""}
+    ${readOnly?(hasMine(i)?`<div class="actions" style="margin-top:10px"><button class="btn" disabled style="flex:1;opacity:.7">✓ Already on your shelf</button></div>`:`<div class="actions" style="margin-top:10px"><button class="btn main" id="copyBtn" data-id="${esc(i.id)}">+ Add to my shelf</button></div>`):""}`);
 }
-function checkLeak(){
-  let mine=[];try{mine=JSON.parse(ls.get(KEY)||"[]")}catch(e){}
-  const ids=new Set(all.map(i=>i.id));
-  const leaked=mine.filter(i=>i&&!i.deleted&&ids.has(i.id)&&!String(i.id).startsWith("__"));
-  if(!leaked.length)return;
-  const bar=document.createElement("div");bar.className="tokerr";bar.style.marginTop="12px";
-  bar.innerHTML=`${leaked.length} item${leaked.length>1?"s":""} from this shelf got copied into your own shelf by an old bug. <button class="btn" id="fixLeak" style="height:38px;margin-top:8px;display:block">Remove ${leaked.length>1?"them":"it"} from my shelf</button>`;
-  $("banner").after(bar);
-  $("fixLeak").onclick=()=>{
-    const now=Date.now(),bad=new Set(leaked.map(i=>i.id));
-    const fixed=mine.map(i=>bad.has(i.id)?{id:i.id,deleted:true,updated:now}:i);
-    try{localStorage.setItem(KEY,JSON.stringify(fixed))}catch(e){}
-    bar.textContent="Done. Open your own shelf and it will clean up and sync.";
-  };
+function mineList(){try{return JSON.parse(ls.get(KEY)||"[]")}catch(e){return[]}}
+function hasMine(i){
+  const t=String(i.title||"").trim().toLowerCase();
+  return mineList().some(x=>x&&!x.deleted&&x.title&&x.cat===i.cat&&x.title.trim().toLowerCase()===t);
 }
+function copyToMine(i){
+  const mine=mineList(),now=Date.now();
+  const c={id:nid(),title:i.title,creator:i.creator||"",cat:i.cat,status:"want",cur:0,total:+i.total||0,rating:0,fav:false,
+    where:i.where||"",link:safe(i.link),cover:i.cover||"",note:"",added:now,updated:now};
+  if(i.useSeasons&&Array.isArray(i.seasonEps)&&i.seasonEps.length){
+    c.useSeasons=true;c.sv=2;c.seasonEps=i.seasonEps.map(v=>+v||0);c.ongoing=!!i.ongoing;c.season=1;c.seasons=c.seasonEps.length;c.total=c.seasonEps[0]||0;
+  }
+  mine.push(c);ls.set(KEY,JSON.stringify(mine));
+}
+$("sheet").addEventListener("click",e=>{
+  const b=e.target.closest("#copyBtn");if(!b||!readOnly)return;
+  const it=all.find(x=>x.id===b.dataset.id);if(!it)return;
+  copyToMine(it);
+  b.disabled=true;b.className="btn";b.style.flex="1";b.textContent="✓ Added to your Wanna list";
+  toast("Added to your shelf");
+});
 async function loadShared(){
   try{
     const r=await fetch("https://api.github.com/gists/"+encodeURIComponent(SHARE),{headers:{"Accept":"application/vnd.github+json"}});
@@ -851,7 +867,6 @@ async function loadShared(){
     const pr=Array.isArray(arr)?arr.find(i=>i&&i.id==="__profile"):null;sharedName=pr&&pr.name?pr.name:"";
     all=Array.isArray(arr)?arr.filter(i=>i&&i.id&&i.title&&!i.deleted):[];
     render();
-    checkLeak();
   }catch(e){$("bannerTxt").textContent="Couldn’t load this shelf. Check the link.";}
 }
 
