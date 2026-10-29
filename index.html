@@ -91,6 +91,8 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
 .chip[aria-pressed="true"]{color:var(--text);border-color:var(--text)}
 .chip b{font-weight:800;color:var(--text)}
 .bar2{display:flex;gap:8px;margin-top:10px}
+.favbtn{flex:none;width:46px;border-radius:12px;background:var(--card);border:1px solid var(--line);color:var(--muted);font-size:19px;line-height:1}
+.favbtn[aria-pressed="true"]{background:var(--pink);border-color:var(--pink);color:#fff}
 .bar2 input,.bar2 select{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
 .bar2 input{flex:1}
 
@@ -311,6 +313,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
     </div>
     <div class="bar2">
       <input id="q" type="search" placeholder="Search title, platform, notes" aria-label="Search">
+      <button class="favbtn" id="favBtn" aria-pressed="false" aria-label="Show favorites only" title="Favorites only">♥</button>
       <select id="sort" aria-label="Sort">
         <option value="recent">Recent</option>
         <option value="rating">Top rated</option>
@@ -395,11 +398,12 @@ function renderTitle(){
   if(n){const ini=(Array.from(n)[0]||"").toUpperCase();$("av").textContent=ini;$("whoName").textContent=n+"’s";
     $("hero").hidden=!readOnly;
     if(readOnly){
-      const L=live(),r=L.filter(i=>i.rating),avg=r.length?(r.reduce((a,b)=>a+b.rating,0)/r.length).toFixed(1):"–";
+      const L=live();
       $("hAv").textContent=ini;$("hName").textContent=n+"’s shelf";
-      $("hStats").innerHTML=`<span><b>${L.filter(i=>i.status==="completed"||i.status==="reviewed").length}</b> finished</span><span><b>${L.filter(i=>i.status==="progress").length}</b> in progress</span><span><b>${avg}</b> avg rating</span>`;
+      const nf=L.filter(i=>i.fav).length,nt=L.filter(i=>i.rating>=9).length;
+      $("hStats").innerHTML=(nf?`<span><b>${nf}</b> favorite${nf>1?"s":""}</span>`:"")+(nt?`<span><b>${nt}</b> top rated</span>`:"")+(!nf&&!nt?`<span><b>${L.length}</b> on the shelf</span>`:"");
       const fv=L.filter(i=>i.fav).sort((a,b)=>b.updated-a.updated).slice(0,8);
-      $("hFavs").innerHTML=fv.length?`<span>♥ Favorites</span>`+fv.map(i=>`<button class="hf" data-a="edit" data-id="${esc(i.id)}" aria-label="${esc(i.title)}">${cover(i,true)}</button>`).join(""):"";
+      $("hFavs").innerHTML=fv.length?fv.map(i=>`<button class="hf" data-a="edit" data-id="${esc(i.id)}" aria-label="${esc(i.title)}">${cover(i,true)}</button>`).join(""):"";
     }
   }else $("hero").hidden=true;
   document.title=(n?n+"’s ":"")+"Mi Robo Shelf";
@@ -643,12 +647,11 @@ function renderRail(){
   }).join("");
 }
 function renderFilters(){
+  $("favBtn").setAttribute("aria-pressed",fFav);
   const L=live(),cnt={};L.forEach(i=>cnt[i.cat]=(cnt[i.cat]||0)+1);
   $("catF").innerHTML=`<button class="chip" aria-pressed="${fCat==="all"}" data-c="all">All <b>${L.length}</b></button>`+
     CATS.map(c=>`<button class="chip" style="--c:${c.c}" aria-pressed="${fCat===c.id}" data-c="${c.id}"><i></i>${c.label}${cnt[c.id]?` <b>${cnt[c.id]}</b>`:""}</button>`).join("");
-  const nFav=L.filter(i=>i.fav).length;
   $("stF").innerHTML=`<button class="chip" aria-pressed="${fSt==="all"}" data-s="all">Any status</button>`+
-    `<button class="chip fav" aria-pressed="${fFav}" data-fav="1">♥ Favorites${nFav?` <b>${nFav}</b>`:""}</button>`+
     STATUS.map(s=>`<button class="chip" aria-pressed="${fSt===s.id}" data-s="${s.id}">${s.label}</button>`).join("");
 }
 function renderGrid(){
@@ -1215,10 +1218,8 @@ $("rail").addEventListener("click",quick);
 $("hero").addEventListener("click",e=>{const b=e.target.closest('[data-a="edit"]');if(b)detail(b.dataset.id)});
 $("grid").addEventListener("click",quick);
 $("catF").addEventListener("click",e=>{const b=e.target.closest("[data-c]");if(b){fCat=b.dataset.c;render()}});
-$("stF").addEventListener("click",e=>{
-  if(e.target.closest("[data-fav]")){fFav=!fFav;render();return}
-  const b=e.target.closest("[data-s]");if(b){fSt=b.dataset.s;render()}
-});
+$("stF").addEventListener("click",e=>{const b=e.target.closest("[data-s]");if(b){fSt=b.dataset.s;render()}});
+$("favBtn").addEventListener("click",()=>{fFav=!fFav;render()});
 $("q").addEventListener("input",renderGrid);
 $("sort").addEventListener("change",renderGrid);
 $("addBtn").onclick=()=>edit(null);
