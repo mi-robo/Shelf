@@ -468,7 +468,7 @@ async function searchMedia(src,q){
       const k=(q.trim()[0]||"x").toLowerCase().replace(/[^a-z0-9]/,"x");
       const j=await jget("https://v2.sg.media-imdb.com/suggestion/"+k+"/"+encodeURIComponent(q.trim())+".json");
       out=(j.d||[]).filter(x=>x&&/^tt/.test(x.id||"")&&["movie","tvMovie","short","video"].includes(x.qid)).slice(0,8)
-        .map(x=>({title:x.l,year:x.y||"",creator:"",cover:x.i&&x.i.imageUrl?x.i.imageUrl.replace(/\._V1_.*\.jpg$/,"._V1_UX400.jpg"):"",total:0}));
+        .map(x=>({title:x.l,year:x.y||"",creator:"",cover:x.i&&x.i.imageUrl?x.i.imageUrl.replace(/\._V1_.*\.jpg$/,"._V1_UX400_.jpg"):"",total:0}));
     }catch(e){}
     // 2) Wikipedia film pages
     if(!out.length){
