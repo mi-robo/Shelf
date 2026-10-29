@@ -212,6 +212,18 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
 .rseg{display:flex;gap:6px;margin-top:12px}
 .rseg button{flex:1;padding:9px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-weight:800;font-size:13.5px}
 .rseg button[aria-pressed="true"]{background:var(--text);color:var(--bg);border-color:var(--text)}
+.chip.fav b{color:var(--pink)}
+.hfavs{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.hfavs>span{font-size:12px;color:var(--muted);font-weight:800;margin-right:2px}
+.hf{width:40px;flex:none}
+.hf .cv{border-radius:7px}
+.hf .ph{padding:3px}
+.hf .ph b{font-size:6px;-webkit-line-clamp:4}
+.favgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:12px}
+.favgrid button{text-align:left;display:grid;gap:5px}
+.favgrid .cv{border-radius:10px}
+.favgrid .ph b{font-size:9px}
+.favgrid em{font-style:normal;font-size:12px;font-weight:700;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .banner{margin-top:12px;padding:12px 14px;border-radius:14px;background:var(--card);border:1px solid var(--line);font-weight:600;font-size:14px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 .banner a{font-weight:800;color:var(--cyan)}
 .ro .ctl,.ro .pbar+.ctl{display:none}
@@ -284,7 +296,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
   <main id="lib">
     <section class="hero" id="hero" hidden>
       <div class="hav" id="hAv"></div>
-      <div style="min-width:0"><h2 id="hName"></h2><div class="hstats" id="hStats"></div></div>
+      <div style="min-width:0"><h2 id="hName"></h2><div class="hstats" id="hStats"></div><div class="hfavs" id="hFavs"></div></div>
     </section>
     <section id="contSec">
       <h2 class="sec-title">Continue <small id="contCount"></small></h2>
@@ -370,7 +382,7 @@ const SHARE=new URLSearchParams(location.search).get("u");
 const readOnly=!!SHARE;
 const safe=u=>/^https?:\/\//i.test(u||"")?u:"";
 let all=[];                 // includes tombstones
-let view="lib", fCat="all", fSt="all", draft=null;
+let view="lib", fCat="all", fSt="all", fFav=false, draft=null;
 const unitWord=u=>({Ep:"eps",Ch:"chs",Pg:"pages",Vid:"videos"}[u]||"");
 const cat=id=>CATS.find(c=>c.id===id)||CATS[0];
 const stL=id=>(STATUS.find(s=>s.id===id)||{}).label||id;
@@ -386,6 +398,8 @@ function renderTitle(){
       const L=live(),r=L.filter(i=>i.rating),avg=r.length?(r.reduce((a,b)=>a+b.rating,0)/r.length).toFixed(1):"–";
       $("hAv").textContent=ini;$("hName").textContent=n+"’s shelf";
       $("hStats").innerHTML=`<span><b>${L.filter(i=>i.status==="completed"||i.status==="reviewed").length}</b> finished</span><span><b>${L.filter(i=>i.status==="progress").length}</b> in progress</span><span><b>${avg}</b> avg rating</span>`;
+      const fv=L.filter(i=>i.fav).sort((a,b)=>b.updated-a.updated).slice(0,8);
+      $("hFavs").innerHTML=fv.length?`<span>♥ Favorites</span>`+fv.map(i=>`<button class="hf" data-a="edit" data-id="${esc(i.id)}" aria-label="${esc(i.title)}">${cover(i,true)}</button>`).join(""):"";
     }
   }else $("hero").hidden=true;
   document.title=(n?n+"’s ":"")+"Mi Robo Shelf";
@@ -632,12 +646,14 @@ function renderFilters(){
   const L=live(),cnt={};L.forEach(i=>cnt[i.cat]=(cnt[i.cat]||0)+1);
   $("catF").innerHTML=`<button class="chip" aria-pressed="${fCat==="all"}" data-c="all">All <b>${L.length}</b></button>`+
     CATS.map(c=>`<button class="chip" style="--c:${c.c}" aria-pressed="${fCat===c.id}" data-c="${c.id}"><i></i>${c.label}${cnt[c.id]?` <b>${cnt[c.id]}</b>`:""}</button>`).join("");
+  const nFav=L.filter(i=>i.fav).length;
   $("stF").innerHTML=`<button class="chip" aria-pressed="${fSt==="all"}" data-s="all">Any status</button>`+
+    `<button class="chip fav" aria-pressed="${fFav}" data-fav="1">♥ Favorites${nFav?` <b>${nFav}</b>`:""}</button>`+
     STATUS.map(s=>`<button class="chip" aria-pressed="${fSt===s.id}" data-s="${s.id}">${s.label}</button>`).join("");
 }
 function renderGrid(){
   const q=$("q").value.trim().toLowerCase();
-  let r=live().filter(i=>(fCat==="all"||i.cat===fCat)&&(fSt==="all"||i.status===fSt)&&(!q||[i.title,i.creator,i.kind,i.where,i.note].join(" ").toLowerCase().includes(q)));
+  let r=live().filter(i=>(fCat==="all"||i.cat===fCat)&&(fSt==="all"||i.status===fSt)&&(!fFav||i.fav)&&(!q||[i.title,i.creator,i.kind,i.where,i.note].join(" ").toLowerCase().includes(q)));
   const s=$("sort").value;
   if(s==="rating")r.sort((a,b)=>(b.rating||0)-(a.rating||0)||b.updated-a.updated);
   else if(s==="title")r.sort((a,b)=>a.title.localeCompare(b.title));
@@ -689,6 +705,7 @@ function recapHTML(){
     ${undated&&!readOnly?`<div class="hint" style="margin-top:8px">${undated} finished item${undated>1?"s have":" has"} no date. Open ${undated>1?"them":"it"} and set Finished to count in the recap.</div>`:""}`;
 }
 $("stats").addEventListener("click",e=>{
+  const f=e.target.closest('[data-a="edit"]');if(f){detail(f.dataset.id);return}
   const b=e.target.closest("[data-r]");if(!b)return;
   const v=b.dataset.r;
   if(v==="month"||v==="year"||v==="all")rMode=v;
@@ -710,6 +727,7 @@ function renderStats(){
   const mx=Math.max(1,...CATS.map(c=>L.filter(i=>i.cat===c.id).length));
   const plat={};L.forEach(i=>{if(i.where)plat[i.where]=(plat[i.where]||0)+1});
   const plats=Object.entries(plat).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const favs=L.filter(i=>i.fav).sort((a,b)=>b.updated-a.updated);
   const top=[...rated].sort((a,b)=>b.rating-a.rating||b.updated-a.updated).slice(0,5);
   $("stats").innerHTML=recapHTML()+`
   <div class="sgrid">
@@ -723,6 +741,7 @@ function renderStats(){
     <div class="sbox"><b>${L.filter(i=>i.fav).length}</b><span>Favorites</span></div>
   </div>
   <div class="panel"><h3>By category</h3>${CATS.map(c=>{const k=L.filter(i=>i.cat===c.id).length;return `<div class="hb"><span>${c.label}</span><div class="pbar"><i style="width:${k/mx*100}%;background:${c.c}"></i></div><b>${k}</b></div>`}).join("")}</div>
+  <div class="panel"><h3>♥ Favorites${favs.length?" · "+favs.length:""}</h3>${favs.length?`<div class="favgrid">${favs.map(i=>`<button data-a="edit" data-id="${esc(i.id)}">${cover(i,true)}<em>${esc(i.title)}</em></button>`).join("")}</div>`:`<span class="hint">Tap the heart on any item and it shows up here.</span>`}</div>
   <div class="panel"><h3>Top rated</h3>${top.length?top.map(i=>`<div class="rowl"><span>${esc(i.title)}</span><span style="color:var(--gold)">★ ${i.rating}</span></div>`).join(""):`<span class="hint">Rate something and it shows up here.</span>`}</div>
   <div class="panel"><h3>Where you watch and read</h3>${plats.length?plats.map(([p,k])=>`<div class="rowl"><span>${esc(p)}</span><b>${k}</b></div>`).join(""):`<span class="hint">Add a platform to any item to see this.</span>`}</div>
   <div class="panel"><h3>Backup</h3>
@@ -1193,9 +1212,13 @@ async function quick(e){
   put(n);
 }
 $("rail").addEventListener("click",quick);
+$("hero").addEventListener("click",e=>{const b=e.target.closest('[data-a="edit"]');if(b)detail(b.dataset.id)});
 $("grid").addEventListener("click",quick);
 $("catF").addEventListener("click",e=>{const b=e.target.closest("[data-c]");if(b){fCat=b.dataset.c;render()}});
-$("stF").addEventListener("click",e=>{const b=e.target.closest("[data-s]");if(b){fSt=b.dataset.s;render()}});
+$("stF").addEventListener("click",e=>{
+  if(e.target.closest("[data-fav]")){fFav=!fFav;render();return}
+  const b=e.target.closest("[data-s]");if(b){fSt=b.dataset.s;render()}
+});
 $("q").addEventListener("input",renderGrid);
 $("sort").addEventListener("change",renderGrid);
 $("addBtn").onclick=()=>edit(null);
