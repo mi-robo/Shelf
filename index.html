@@ -318,7 +318,7 @@ const CATS=[
   {id:"movie",label:"Movies",unit:"",c:"#9b5bff",src:"movie"},
   {id:"video",label:"Videos",unit:"",c:"#9bdc3a",src:""},
   {id:"book",label:"Books",unit:"Pg",c:"#2fbf85",src:"book"},
-  {id:"essay",label:"Essays",unit:"",c:"#e6b422",src:""},
+  {id:"essay",label:"Essays",unit:"",c:"#e6b422",src:"essay"},
   {id:"doc",label:"Docs",unit:"",c:"#22b8c8",src:""}
 ];
 const STATUS=[
@@ -486,6 +486,25 @@ async function searchMedia(src,q){
       }catch(e){}
     }
     return out;
+  }
+  if(src==="essay"){
+    let sub=[],hn=[];
+    try{
+      const j=await jget("https://substack.com/api/v1/post/search?query="+encodeURIComponent(q.trim())+"&page=0&includePlatformResults=true");
+      sub=(j.results||j.posts||[]).filter(x=>x&&x.title&&x.canonical_url).slice(0,6).map(x=>{
+        const by=(x.publishedBylines&&x.publishedBylines[0]&&x.publishedBylines[0].name)||"";
+        const pub=(x.publication&&x.publication.name)||"";
+        return {title:x.title,creator:by||pub,sub:pub||by,cover:x.cover_image||"",link:x.canonical_url,where:"Substack",total:0};
+      });
+    }catch(e){}
+    try{
+      const j=await jget("https://hn.algolia.com/api/v1/search?tags=story&hitsPerPage=10&query="+encodeURIComponent(q.trim()));
+      hn=(j.hits||[]).filter(h=>h.url&&h.title).slice(0,sub.length?4:8).map(h=>{
+        let host="";try{host=new URL(h.url).hostname.replace(/^www\./,"")}catch(e){}
+        return {title:h.title,creator:"",sub:host,cover:"",link:h.url,where:host.includes("substack")?"Substack":host.includes("medium")?"Medium":"",total:0};
+      });
+    }catch(e){}
+    return sub.concat(hn);
   }
   if(src==="book"){
     const j=await (await fetch("https://openlibrary.org/search.json?limit=8&fields=title,author_name,cover_i,number_of_pages_median&q="+encodeURIComponent(q))).json();
@@ -711,8 +730,8 @@ function drawEdit(){
   <div class="f"><span class="lbl">Category</span><div class="seg">${CATS.map(x=>`<button data-k="cat" data-v="${x.id}" aria-pressed="${x.id===d.cat}">${x.label}</button>`).join("")}</div></div>
   <div class="f"><label for="eTitle">Title</label>
     <div class="finder"><input id="eTitle" value="${esc(d.title)}" autocomplete="off" placeholder="e.g. Vinland Saga">${c.src?`<button class="go" id="findBtn">Find</button>`:""}</div>
-    ${c.src?`<div class="hint">Tap Find to grab the cover and total ${c.unit==="Ep"?"episodes":c.unit==="Ch"?"chapters":c.unit==="Pg"?"pages":"info"}.</div>`:""}
-    <div class="results" id="results">${found.map((r,k)=>`<button class="res" data-pick="${k}">${r.cover?`<img src="${esc(r.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:`<span class="noimg"></span>`}<span>${esc(r.title)}${r.year?" ("+esc(r.year)+")":""}</span></button>`).join("")}</div>
+    ${c.src?`<div class="hint">${c.id==="essay"?"Find searches Substack first, then other essays. Pasting the article link below also fills everything in.":"Tap Find to grab the cover and total "+(c.unit==="Ep"?"episodes":c.unit==="Ch"?"chapters":c.unit==="Pg"?"pages":"info")+"."}</div>`:""}
+    <div class="results" id="results">${found.map((r,k)=>`<button class="res" data-pick="${k}">${r.cover?`<img src="${esc(r.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:`<span class="noimg"></span>`}<span>${esc(r.title)}${r.year?" ("+esc(r.year)+")":""}</span>${r.sub?`<span style="color:var(--muted);font-weight:500">${esc(r.sub)}</span>`:""}</button>`).join("")}</div>
   </div>
   <div class="f"><label for="eBy">Creator (writer, director, channel)</label><input id="eBy" value="${esc(d.creator)}" autocomplete="off" placeholder="e.g. Makoto Yukimura"></div>
   <div class="f"><span class="lbl">Status</span><div class="seg">${STATUS.map(x=>`<button data-k="status" data-v="${x.id}" aria-pressed="${x.id===d.status}">${x.label}</button>`).join("")}</div></div>
@@ -826,7 +845,7 @@ $("sheet").addEventListener("click",async e=>{
   }
   if(b.dataset.pick!=null){
     readEdit();const r=found[+b.dataset.pick];
-    draft.title=r.title;draft.cover=r.cover;if(r.creator)draft.creator=r.creator;if(r.total)draft.total=r.total;
+    draft.title=r.title;draft.cover=r.cover;if(r.creator)draft.creator=r.creator;if(r.link&&!draft.link)draft.link=r.link;if(r.where&&!draft.where)draft.where=r.where;if(r.total)draft.total=r.total;
     if(r.tvId){try{const eps=await (await fetch(`https://api.tvmaze.com/shows/${r.tvId}/episodes`)).json();const ms=Math.max(0,...eps.map(e=>e.season||0));const s1=eps.filter(e=>e.season===1).length;if(ms){draft.useSeasons=true;draft.seasonEps=Array.from({length:ms},(_,k)=>eps.filter(e=>e.season===k+1).length);draft.ongoing=!!r.running;{const l=draft.seasonEps;while(l.length>1&&!l[l.length-1]){l.pop();draft.ongoing=true}}draft.season=draft.season||1;syncTotal(draft)}else draft.total=eps.length||draft.total}catch(err){}}
     found=[];const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;toast("Cover added");return;
   }
