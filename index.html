@@ -313,7 +313,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
 /* ================= config ================= */
 const CATS=[
   {id:"anime",label:"Anime",unit:"Ep",c:"#ff4f8b",src:"anime",seasons:true},
-  {id:"manga",label:"Manga & Co",unit:"Ch",c:"#ff8a3d",src:"manga"},
+  {id:"manga",label:"Manga & Co",unit:"Ch",c:"#ff8a3d",src:"manga",seasons:true},
   {id:"series",label:"Series",unit:"Ep",c:"#3e8bff",src:"tv",seasons:true},
   {id:"movie",label:"Movies",unit:"",c:"#9b5bff",src:"movie"},
   {id:"video",label:"Videos",unit:"",c:"#9bdc3a",src:""},
@@ -666,7 +666,7 @@ function renderStats(){
   const yr=new Date().getFullYear();
   const yrDone=L.filter(i=>i.doneAt&&new Date(i.doneAt).getFullYear()===yr&&(i.status==="completed"||i.status==="reviewed")).length;
   const eps=L.filter(i=>cat(i.cat).unit==="Ep").reduce((a,b)=>a+(+b.cur||0)+baseOf(b),0);
-  const chs=L.filter(i=>i.cat==="manga").reduce((a,b)=>a+(+b.cur||0),0);
+  const chs=L.filter(i=>i.cat==="manga").reduce((a,b)=>a+(+b.cur||0)+baseOf(b),0);
   const mx=Math.max(1,...CATS.map(c=>L.filter(i=>i.cat===c.id).length));
   const plat={};L.forEach(i=>{if(i.where)plat[i.where]=(plat[i.where]||0)+1});
   const plats=Object.entries(plat).sort((a,b)=>b[1]-a[1]).slice(0,6);
@@ -753,13 +753,13 @@ function drawEdit(){
   ${d.useSeasons?`<div class="f"><label for="eSeasonCount">How many seasons are out?</label>
     <div class="stepper"><button data-scount="-1" aria-label="Fewer seasons">−</button><input id="eSeasonCount" type="number" inputmode="numeric" min="1" value="${Math.max(1,d.seasonEps.length)}"><button data-scount="1" aria-label="More seasons">+</button></div>
     <div class="seg" style="margin-top:8px"><button data-k="ongoing" aria-pressed="${!!d.ongoing}">${d.ongoing?"✓ More seasons coming":"Still airing? Tap if more seasons are coming"}</button></div></div>
-  <div class="f"><span class="lbl">Episodes in each season</span>
+  <div class="f"><span class="lbl">${c.unit==="Ch"?"Chapters":"Episodes"} in each season</span>
     <div class="sgrid2">${d.seasonEps.map((v,k)=>`<label class="sbox2">Season ${k+1}<input data-sidx="${k}" type="number" inputmode="numeric" min="0" value="${v||""}" placeholder="Eps"></label>`).join("")}</div></div>
   <div class="f"><span class="lbl">Which season are you on?</span>
     <div class="seg">${d.seasonEps.map((v,k)=>`<button data-season="${k+1}" aria-pressed="${(d.season||1)===k+1}">S${k+1}</button>`).join("")}</div></div>`:""}`:""}
   ${c.unit?`<div class="two">
     <div class="f"><label for="eCur">${c.unit} now${hasSE?" (in S"+(d.season||1)+")":""}</label><div class="stepper"><button data-step="-1" aria-label="Minus one">−</button><input id="eCur" type="number" inputmode="numeric" min="0" value="${d.cur||0}"><button data-step="1" aria-label="Plus one">+</button></div></div>
-    ${hasSE?`<div class="f"><span class="lbl">Episodes in S${d.season||1}</span><div class="seasontot">${d.total?d.total:"Not out yet"}</div><input id="eTot" type="hidden" value="${d.total||0}"></div>`
+    ${hasSE?`<div class="f"><span class="lbl">${c.unit==="Ch"?"Chapters":"Episodes"} in S${d.season||1}</span><div class="seasontot">${d.total?d.total:"Not out yet"}</div><input id="eTot" type="hidden" value="${d.total||0}"></div>`
     :`<div class="f"><label for="eTot">Total (0 = ongoing)</label><input id="eTot" type="number" inputmode="numeric" min="0" value="${d.total||0}"></div>`}
   </div>`:""}
   <div class="f"><label for="eWhere">Where</label>
@@ -1096,7 +1096,7 @@ async function quick(e){
     if(list&&n.total&&n.cur>=n.total){
       if(sn<list.length){
         if(+list[sn]>0){n.season=sn+1;syncTotal(n);n.cur=0}
-        else{toast("Add the episode count for Season "+(sn+1)+" first");return}
+        else{toast("Add the "+(cat(n.cat).unit==="Ch"?"chapter":"episode")+" count for Season "+(sn+1)+" first");return}
       }else if(n.ongoing){toast("You’re caught up! Add Season "+(sn+1)+" when it’s out.");return}
     }
     n.cur=(+n.cur||0)+1;if(n.status!=="progress")n.status="progress";if(!n.startedAt)n.startedAt=Date.now();
@@ -1104,7 +1104,7 @@ async function quick(e){
       const s2=n.season||1;
       if(list&&s2<list.length){
         if(+list[s2]>0){n.season=s2+1;syncTotal(n);n.cur=0;toast("Season "+(s2+1)+" started")}
-        else toast("Season "+s2+" done! Add Season "+(s2+1)+"’s episode count.");
+        else toast("Season "+s2+" done! Add Season "+(s2+1)+"’s "+(cat(n.cat).unit==="Ch"?"chapter":"episode")+" count.");
       }else if(list&&n.ongoing){toast("You’re caught up! More seasons coming.")}
       else{n.cur=n.total;n.status="completed";n.doneAt=Date.now();toast("Finished “"+n.title+"”! Rate it?")}
     }
