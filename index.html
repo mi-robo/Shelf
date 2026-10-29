@@ -473,9 +473,21 @@ async function searchMedia(src,q){
     // 2) Wikipedia film pages
     if(!out.length){
       try{
-        const j=await jget("https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrlimit=8&gsrsearch="+encodeURIComponent(q+" film")+"&prop=pageimages|description&piprop=thumbnail&pithumbsize=400&format=json&origin=*");
-        out=Object.values((j.query&&j.query.pages)||{}).filter(p=>/film|movie/i.test(p.description||"")).sort((a,b)=>a.index-b.index).slice(0,8)
+        const j=await jget("https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrlimit=8&gsrsearch="+encodeURIComponent(q+" film")+"&prop=pageimages|description&piprop=thumbnail&pilicense=any&pithumbsize=400&format=json&origin=*");
+        out=Object.values((j.query&&j.query.pages)||{}).filter(p=>/film|movie/i.test(p.description||"")&&!/soundtrack|album|song|score|video game|series/i.test(p.description||"")).sort((a,b)=>a.index-b.index).slice(0,8)
           .map(p=>({title:p.title.replace(/\s*\((\d{4} )?film\)$/i,""),year:((p.description||"").match(/(\d{4}) /)||[])[1]||"",creator:((p.description||"").match(/ by (.+)$/)||[])[1]||"",cover:p.thumbnail?p.thumbnail.source:"",total:0}));
+      }catch(e){}
+    }
+    // fill missing posters from Apple's catalog when titles match
+    if(out.length&&out.some(x=>!x.cover)){
+      try{
+        const nz=t=>String(t||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+        const j=await jget("https://itunes.apple.com/search?media=movie&limit=15&term="+encodeURIComponent(q));
+        for(const x of out){
+          if(x.cover)continue;
+          const m=(j.results||[]).find(r=>nz(r.trackName)===nz(x.title)||nz(r.trackName).startsWith(nz(x.title)));
+          if(m){x.cover=(m.artworkUrl100||"").replace("100x100","400x600");if(!x.creator)x.creator=m.artistName||""}
+        }
       }catch(e){}
     }
     // 3) Apple catalog as last resort
