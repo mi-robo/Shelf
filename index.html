@@ -119,6 +119,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
 .scrim.open{opacity:1;pointer-events:auto}
 .sheet{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:620px;max-height:92%;overflow-y:auto;background:var(--bg2);border:1px solid var(--line);border-bottom:0;border-radius:24px 24px 0 0;padding:10px 18px calc(22px + env(safe-area-inset-bottom,0px));z-index:21;transform:translateY(105%);transition:transform .25s ease}
 .sheet.open{transform:none}
+.xbtn{position:sticky;top:6px;float:right;width:38px;height:38px;border-radius:50%;background:var(--card2);border:1px solid var(--line);display:grid;place-items:center;font-size:16px;font-weight:800;z-index:3}
 .grab{width:42px;height:5px;border-radius:9px;background:var(--line);margin:0 auto 12px}
 .sheet h2{font-family:var(--head);font-weight:800;font-size:20px;margin:0 0 14px}
 .f{display:grid;gap:6px;margin-bottom:14px}
@@ -300,9 +301,9 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
 "use strict";
 /* ================= config ================= */
 const CATS=[
-  {id:"anime",label:"Anime",unit:"Ep",c:"#ff4f8b",src:"anime"},
+  {id:"anime",label:"Anime",unit:"Ep",c:"#ff4f8b",src:"anime",seasons:true},
   {id:"manga",label:"Manga",unit:"Ch",c:"#ff8a3d",src:"manga"},
-  {id:"series",label:"Series/Playlist",unit:"Ep",c:"#3e8bff",src:"tv"},
+  {id:"series",label:"Series/Playlist",unit:"Ep",c:"#3e8bff",src:"tv",seasons:true},
   {id:"movie",label:"Movies",unit:"",c:"#9b5bff",src:"movie"},
   {id:"video",label:"Videos",unit:"",c:"#9bdc3a",src:""},
   {id:"book",label:"Books",unit:"Pg",c:"#2fbf85",src:"book"},
@@ -466,7 +467,8 @@ function cover(i,small){
   const c=cat(i.cat);
   return `<span class="cv" style="--c:${c.c}">${i.cover?`<img src="${esc(i.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:""}${i.cover?"":`<span class="ph"><b>${esc(i.title)}</b></span>`}${small?"":`<span class="badge">${c.label}</span>`}</span>`;
 }
-function progText(i){const u=cat(i.cat).unit;if(!u)return"";return `${u} ${i.cur||0}${i.total?" / "+i.total:""}`}
+function seasonTxt(i){const c=cat(i.cat);if(!c.seasons||!(i.season||i.seasons))return"";return "Season "+(i.season||1)+(i.seasons?" of "+i.seasons:"")}
+function progText(i){const c=cat(i.cat);if(!c.unit)return"";const sn=c.seasons&&(i.season||i.seasons)?`S${i.season||1}${i.seasons?"/"+i.seasons:""} · `:"";return sn+`${c.unit} ${i.cur||0}${i.total?" / "+i.total:""}`}
 function pct(i){return i.total?Math.min(100,Math.round((i.cur||0)/i.total*100)):0}
 
 function renderRail(){
@@ -480,6 +482,7 @@ function renderRail(){
       <div class="info">
         <button class="t" data-a="edit" data-id="${i.id}" style="text-align:left">${esc(i.title)}</button>
         <div class="w">${i.creator?"by "+esc(i.creator)+" · ":""}${c.label}${i.where?" on "+esc(i.where):""}</div>
+        ${seasonTxt(i)?`<div class="w" style="color:var(--cyan);font-weight:800">${seasonTxt(i)}</div>`:""}
         ${c.unit?`<div class="where-now">${i.cur||0}<small>${i.total?" / "+i.total:""} ${unitWord(c.unit)}</small></div>
         <div class="pbar"><i style="width:${pct(i)}%"></i></div>
         <div class="ctl"><button class="mini" data-a="minus" data-id="${i.id}" aria-label="Minus one">−</button><button class="plus" data-a="plus" data-id="${i.id}">+1 ${c.unit}</button>${i.link?`<a class="mini" style="display:grid;place-items:center;text-decoration:none" href="${esc(safe(i.link))}" target="_blank" rel="noopener" aria-label="Open">↗</a>`:""}</div>`
@@ -564,7 +567,7 @@ function renderStats(){
   const avg=rated.length?(rated.reduce((a,b)=>a+b.rating,0)/rated.length).toFixed(1):"–";
   const yr=new Date().getFullYear();
   const yrDone=L.filter(i=>i.doneAt&&new Date(i.doneAt).getFullYear()===yr&&(i.status==="completed"||i.status==="reviewed")).length;
-  const eps=L.filter(i=>cat(i.cat).unit==="Ep").reduce((a,b)=>a+(+b.cur||0),0);
+  const eps=L.filter(i=>cat(i.cat).unit==="Ep").reduce((a,b)=>a+(+b.cur||0)+(+b.base||0),0);
   const chs=L.filter(i=>i.cat==="manga").reduce((a,b)=>a+(+b.cur||0),0);
   const mx=Math.max(1,...CATS.map(c=>L.filter(i=>i.cat===c.id).length));
   const plat={};L.forEach(i=>{if(i.where)plat[i.where]=(plat[i.where]||0)+1});
@@ -602,8 +605,20 @@ function renderStats(){
 function render(){renderTitle();if(view==="lib"){renderRail();renderFilters();renderGrid()}else renderStats()}
 
 /* ================= sheet: add / edit ================= */
-function openSheet(html){$("sheet").innerHTML=`<div class="grab"></div>`+html;$("scrim").classList.add("open");$("sheet").classList.add("open");$("sheet").scrollTop=0}
-function closeSheet(){$("scrim").classList.remove("open");$("sheet").classList.remove("open");draft=null}
+let sheetOpen=false;
+function openSheet(html){
+  const was=$("sheet").classList.contains("open");
+  $("sheet").innerHTML=`<button class="xbtn" id="xBtn" aria-label="Close">✕</button><div class="grab"></div>`+html;
+  $("scrim").classList.add("open");$("sheet").classList.add("open");
+  if(!was)$("sheet").scrollTop=0;
+  if(!sheetOpen){sheetOpen=true;try{history.pushState({sheet:1},"")}catch(e){}}
+}
+function closeSheet(fromPop){
+  $("scrim").classList.remove("open");$("sheet").classList.remove("open");draft=null;
+  if(sheetOpen){sheetOpen=false;if(fromPop!==true){try{history.back()}catch(e){}}}
+}
+window.addEventListener("popstate",()=>{if(sheetOpen)closeSheet(true)});
+$("sheet").addEventListener("click",e=>{if(e.target.closest("#xBtn"))closeSheet()});
 $("scrim").onclick=closeSheet;
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
 
@@ -627,6 +642,10 @@ function drawEdit(){
     <div class="f"><label for="eCur">${c.unit} now</label><div class="stepper"><button data-step="-1" aria-label="Minus one">−</button><input id="eCur" type="number" inputmode="numeric" min="0" value="${d.cur||0}"><button data-step="1" aria-label="Plus one">+</button></div></div>
     <div class="f"><label for="eTot">Total (0 = ongoing)</label><input id="eTot" type="number" inputmode="numeric" min="0" value="${d.total||0}"></div>
   </div>`:""}
+  ${c.seasons?`<div class="two">
+    <div class="f"><label for="eSeason">Season now</label><div class="stepper"><button data-sstep="-1" aria-label="Previous season">−</button><input id="eSeason" type="number" inputmode="numeric" min="0" value="${d.season||0}"><button data-sstep="1" aria-label="Next season">+</button></div></div>
+    <div class="f"><label for="eSeasons">Total seasons (0 = unknown)</label><input id="eSeasons" type="number" inputmode="numeric" min="0" value="${d.seasons||0}"></div>
+  </div>`:""}
   <div class="f"><label for="eWhere">Where</label>
     <input id="eWhere" list="platList" value="${esc(d.where)}" placeholder="Netflix, YouTube, Substack…" autocomplete="off">
     <datalist id="platList">${[...new Set([...(PLATFORMS[d.cat]||[]),...live().map(i=>i.where).filter(Boolean)])].map(p=>`<option value="${esc(p)}">`).join("")}</datalist>
@@ -637,7 +656,7 @@ function drawEdit(){
     <div class="imgrow">${d.cover?`<img class="thumb" src="${esc(d.cover)}" alt="" referrerpolicy="no-referrer">`:`<span class="thumb"></span>`}
     <div class="seg"><button data-img="link">Fetch from link</button><button data-img="up">Upload</button>${d.cover?`<button data-img="rm">Remove</button>`:""}</div></div>
     <input id="eFile" type="file" accept="image/*" hidden>
-    <div class="hint">Paste the link above, then tap Fetch to grab the image and author. Or upload your own.</div></div>
+    <div class="hint">Paste a link and the title, creator and image fill in automatically. Or upload your own image.</div></div>
   <div class="f"><span class="lbl">Rating</span><div class="rates">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-k="rating" data-v="${n}" aria-pressed="${d.rating===n}">${n}</button>`).join("")}</div></div>
   <div class="f"><span class="lbl">Favorite</span><div class="seg"><button data-k="fav" aria-pressed="${!!d.fav}">${d.fav?"♥ Loved it":"♡ Mark as loved"}</button></div></div>
   <div class="two">
@@ -655,6 +674,7 @@ function readEdit(){
   const d=draft;if(!d)return;
   d.title=$("eTitle").value.trim();
   if($("eCur")){d.cur=Math.max(0,+$("eCur").value||0);d.total=Math.max(0,+$("eTot").value||0)}
+  if($("eSeason")){d.season=Math.max(0,+$("eSeason").value||0);d.seasons=Math.max(0,+$("eSeasons").value||0)}
   d.creator=$("eBy").value.trim();d.startedAt=parseYmd($("eStart").value);d.doneAt=parseYmd($("eEnd").value);d.where=$("eWhere").value.trim();d.link=$("eLink").value.trim();d.note=$("eNote").value.trim();
 }
 $("sheet").addEventListener("click",async e=>{
@@ -668,21 +688,9 @@ $("sheet").addEventListener("click",async e=>{
     if(m==="link"){
       if(!safe(draft.link)){toast("Paste a link first");return}
       b.textContent="…";
-      const yt=ytId(draft.link);let ytDone=false;
-      if(yt){
-        const big="https://i.ytimg.com/vi/"+yt+"/maxresdefault.jpg";
-        draft.cover=(await imgOk(big))?big:"https://i.ytimg.com/vi/"+yt+"/mqdefault.jpg";
-        ytDone=true;if(!draft.where)draft.where="YouTube";
-      }
-      try{
-        const j=await (await fetch("https://api.microlink.io/?url="+encodeURIComponent(draft.link))).json();
-        const x=j.data||{};
-        if(!ytDone&&x.image&&x.image.url)draft.cover=x.image.url;
-        if(x.author&&!draft.creator)draft.creator=x.author;
-        if(!draft.title&&x.title)draft.title=x.title;
-        if(!draft.where&&x.publisher)draft.where=x.publisher;
-        toast(x.image||ytDone?"Image added":"No image found. Try Upload.");
-      }catch(err){toast(ytDone?"Thumbnail added":"Couldn’t fetch. Try Upload.")}
+      const meta=await fetchMeta(draft.link);
+      const n=applyMeta(draft,meta,true);
+      toast(n?"Filled from link":"Couldn’t read that link. Try Upload.");
     }
     const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;return;
   }
@@ -695,6 +703,7 @@ $("sheet").addEventListener("click",async e=>{
     if(k==="fav")draft.fav=!draft.fav;
     const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;return;
   }
+  if(b.dataset.sstep){const inp=$("eSeason");inp.value=Math.max(0,(+inp.value||0)+(+b.dataset.sstep));return}
   if(b.dataset.step){const inp=$("eCur");inp.value=Math.max(0,(+inp.value||0)+(+b.dataset.step));return}
   if(b.id==="findBtn"){
     readEdit();if(!draft.title){toast("Type a title first");return}
@@ -706,14 +715,14 @@ $("sheet").addEventListener("click",async e=>{
   if(b.dataset.pick!=null){
     readEdit();const r=found[+b.dataset.pick];
     draft.title=r.title;draft.cover=r.cover;if(r.creator)draft.creator=r.creator;if(r.total)draft.total=r.total;
-    if(r.tvId){try{const eps=await (await fetch(`https://api.tvmaze.com/shows/${r.tvId}/episodes`)).json();draft.total=eps.length||draft.total}catch(err){}}
+    if(r.tvId){try{const eps=await (await fetch(`https://api.tvmaze.com/shows/${r.tvId}/episodes`)).json();const ms=Math.max(0,...eps.map(e=>e.season||0));const s1=eps.filter(e=>e.season===1).length;if(ms){draft.seasons=ms;draft.season=draft.season||1;if(s1)draft.total=s1}else draft.total=eps.length||draft.total}catch(err){}}
     found=[];const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;toast("Cover added");return;
   }
   if(b.id==="delBtn"){const id=draft.id;closeSheet();del(id);toast("Deleted");return}
   if(b.id==="saveBtn"){
     readEdit();const d=draft;
     if(!d.title){toast("Add a title first");$("eTitle").focus();return}
-    if(d.total&&d.cur>=d.total&&d.status==="progress")d.status="completed";
+    if(d.total&&d.cur>=d.total&&d.status==="progress"&&!(cat(d.cat).seasons&&d.seasons&&(d.season||1)<d.seasons))d.status="completed";
     if(d.cur>0&&d.status==="want")d.status="progress";
     if(d.rating&&d.status==="completed")d.status="reviewed";
     if(d.status==="completed"||d.status==="reviewed"){if(!d.doneAt)d.doneAt=Date.now()}else d.doneAt=0;
@@ -731,6 +740,7 @@ function detail(id){
     <div class="hint">${c.label}${i.where?" on "+esc(i.where):""}</div>
     <div style="margin-top:8px;font-weight:700"><span class="st ${i.status}">${stL(i.status)}</span>${i.rating?` · ★ ${i.rating}/10`:""}${i.fav?" · ♥":""}</div>
     ${progText(i)?`<div class="hint" style="margin-top:4px">${progText(i)}</div>`:""}
+    ${seasonTxt(i)?`<div class="hint" style="margin-top:4px">${seasonTxt(i)}</div>`:""}
     ${datesLine(i)?`<div class="hint" style="margin-top:4px">${datesLine(i)}</div>`:""}</div></div>
     ${i.note?`<p style="margin:14px 0 0;white-space:pre-wrap">${esc(i.note)}</p>`:""}
     ${safe(i.link)?`<div class="actions" style="margin-top:14px"><a class="btn main link" style="justify-content:center" href="${esc(safe(i.link))}" target="_blank" rel="noopener">Open ↗</a></div>`:""}`);
@@ -755,6 +765,47 @@ function ytId(u){
   }catch(e){}
   return "";
 }
+async function jget(u){const r=await fetch(u);if(!r.ok)throw 0;return r.json()}
+async function fetchMeta(link){
+  const out={};let host="";
+  try{host=new URL(link).hostname.replace(/^www\./,"")}catch(e){return out}
+  const isYT=/(^|\.)youtube\.com$/.test(host)||host==="youtu.be"||host==="m.youtube.com";
+  if(isYT){
+    try{
+      const j=await jget("https://www.youtube.com/oembed?format=json&url="+encodeURIComponent(link));
+      out.title=j.title||"";out.creator=j.author_name||"";out.cover=j.thumbnail_url||"";out.where="YouTube";
+    }catch(e){}
+    const id=ytId(link);
+    if(id){
+      const big="https://i.ytimg.com/vi/"+id+"/maxresdefault.jpg";
+      out.cover=(await imgOk(big))?big:"https://i.ytimg.com/vi/"+id+"/mqdefault.jpg";
+      out.where="YouTube";
+    }
+  }
+  if(!out.title){
+    try{
+      const j=await jget("https://api.microlink.io/?url="+encodeURIComponent(link));const x=j.data||{};
+      out.title=x.title||"";out.creator=out.creator||x.author||"";
+      if(x.image&&x.image.url&&!out.cover)out.cover=x.image.url;
+      out.where=out.where||x.publisher||"";
+    }catch(e){}
+  }
+  if(!out.title){
+    try{
+      const x=await jget("https://noembed.com/embed?url="+encodeURIComponent(link));
+      if(!x.error){out.title=x.title||"";out.creator=out.creator||x.author_name||"";if(x.thumbnail_url&&!out.cover)out.cover=x.thumbnail_url;out.where=out.where||x.provider_name||""}
+    }catch(e){}
+  }
+  return out;
+}
+function applyMeta(d,m,replaceCover){
+  let n=0;
+  if(m.title&&!d.title){d.title=m.title;n++}
+  if(m.creator&&!d.creator){d.creator=m.creator;n++}
+  if(m.where&&!d.where){d.where=m.where;n++}
+  if(m.cover&&(replaceCover||!d.cover)){d.cover=m.cover;n++}
+  return n;
+}
 function imgOk(u){return new Promise(r=>{const i=new Image();i.onload=()=>r(i.naturalWidth>200);i.onerror=()=>r(false);i.src=u})}
 function shrink(file){
   return new Promise((res,rej)=>{
@@ -769,6 +820,17 @@ function shrink(file){
   });
 }
 $("sheet").addEventListener("change",async e=>{
+  if(e.target.id==="eLink"&&draft){
+    readEdit();
+    if(!safe(draft.link)||draft.title)return;
+    toast("Reading link…");
+    const meta=await fetchMeta(draft.link);
+    if(!draft)return;
+    const n=applyMeta(draft,meta,false);
+    if(n){toast("Filled from link");const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st}
+    else toast("Couldn’t read that link");
+    return;
+  }
   if(e.target.id!=="eFile"||!draft)return;
   const f=e.target.files[0];if(!f)return;
   readEdit();
@@ -831,10 +893,17 @@ async function quick(e){
   if(readOnly)return;
   const n={...it};
   if(a==="fav")n.fav=!n.fav;
-  if(a==="minus")n.cur=Math.max(0,(+n.cur||0)-1);
+  if(a==="minus"){
+    if((+n.cur||0)===0&&cat(n.cat).seasons&&(n.season||1)>1&&n.total){n.season=(n.season||1)-1;n.cur=n.total;n.base=Math.max(0,(n.base||0)-n.total)}
+    else n.cur=Math.max(0,(+n.cur||0)-1);
+  }
   if(a==="plus"){
     n.cur=(+n.cur||0)+1;if(n.status!=="progress")n.status="progress";if(!n.startedAt)n.startedAt=Date.now();
-    if(n.total&&n.cur>=n.total){n.cur=n.total;n.status="completed";n.doneAt=Date.now();toast("Finished “"+n.title+"”! Rate it?")}
+    if(n.total&&n.cur>=n.total){
+      if(cat(n.cat).seasons&&n.seasons&&(n.season||1)<n.seasons){
+        n.base=(n.base||0)+n.total;n.season=(n.season||1)+1;n.cur=0;toast("Season "+n.season+" started");
+      }else{n.cur=n.total;n.status="completed";n.doneAt=Date.now();toast("Finished “"+n.title+"”! Rate it?")}
+    }
   }
   if(a==="done"){n.status="completed";n.doneAt=Date.now();toast("Nice! Tap it to rate.")}
   put(n);
