@@ -769,10 +769,11 @@ $("sheet").addEventListener("click",e=>{if(e.target.closest("#xBtn"))closeSheet(
 $("scrim").onclick=closeSheet;
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheet()});
 
-function edit(id){
+function edit(id,toReview){
   const it=id?all.find(x=>x.id===id):null;
   draft=it?{...it,seasonEps:it.seasonEps?[...it.seasonEps]:[]}:{id:nid(),title:"",cat:fCat!=="all"?fCat:"anime",status:"want",cur:0,total:0,rating:0,fav:false,where:"",creator:"",link:"",cover:"",note:"",added:Date.now(),_new:true};
   found=[];drawEdit();
+  if(toReview){const r=$("sheet").querySelector(".rates");if(r)setTimeout(()=>r.scrollIntoView({block:"center"}),50)}
 }
 function drawEdit(){
   const d=draft,c=cat(d.cat);
@@ -935,11 +936,12 @@ function detail(id){
     <div class="hint">${i.kind&&i.cat==="manga"?esc(i.kind):c.label}${i.where?" on "+esc(i.where):""}</div>
     <div style="margin-top:8px;font-weight:700"><span class="st ${i.status}">${stL(i.status)}</span>${i.rating?` · ★ ${i.rating}/10`:""}${i.fav?" · ♥":""}</div>
     ${progText(i)?`<div class="hint" style="margin-top:4px">${progText(i)}</div>`:""}
-    ${seasonTxt(i)?`<div class="hint" style="margin-top:4px">${seasonTxt(i)}</div>`:""}
+    ${seasonTxt(i)&&!progText(i)?`<div class="hint" style="margin-top:4px">${seasonTxt(i)}</div>`:""}
     ${datesLine(i)?`<div class="hint" style="margin-top:4px">${datesLine(i)}</div>`:""}</div></div>
-    ${i.note?`<p style="margin:14px 0 0;white-space:pre-wrap">${esc(i.note)}</p>`:""}
+    ${i.note?`<div class="lbl" style="margin-top:14px">Review</div><p style="margin:4px 0 0;white-space:pre-wrap">${esc(i.note)}</p>`:""}
     ${safe(i.link)?`<div class="actions" style="margin-top:14px"><a class="btn link" style="justify-content:center;flex:1" href="${esc(safe(i.link))}" target="_blank" rel="noopener">Open ↗</a></div>`:""}
-    ${readOnly?(hasMine(i)?`<div class="actions" style="margin-top:10px"><button class="btn" disabled style="flex:1;opacity:.7">✓ Already on your shelf</button></div>`:`<div class="actions" style="margin-top:10px"><button class="btn main" id="copyBtn" data-id="${esc(i.id)}">+ Add to my shelf</button></div>`):""}`);
+    ${readOnly?(hasMine(i)?`<div class="actions" style="margin-top:10px"><button class="btn" disabled style="flex:1;opacity:.7">✓ Already on your shelf</button></div>`:`<div class="actions" style="margin-top:10px"><button class="btn main" id="copyBtn" data-id="${esc(i.id)}">+ Add to my shelf</button></div>`):
+      `<div class="actions" style="margin-top:12px"><button class="btn ${i.status==="completed"?"":"main"}" id="pvEdit" data-id="${esc(i.id)}" style="flex:1">Edit</button>${i.status==="completed"?`<button class="btn main" id="pvReview" data-id="${esc(i.id)}" style="flex:1">Add a review</button>`:""}</div>`}`);
 }
 function mineList(){try{return JSON.parse(ls.get(KEY)||"[]")}catch(e){return[]}}
 function hasMine(i){
@@ -956,6 +958,8 @@ function copyToMine(i){
   mine.push(c);ls.set(KEY,JSON.stringify(mine));
 }
 $("sheet").addEventListener("click",e=>{
+  const eb=e.target.closest("#pvEdit,#pvReview");
+  if(eb&&!readOnly){edit(eb.dataset.id,eb.id==="pvReview");return}
   const b=e.target.closest("#copyBtn");if(!b||!readOnly)return;
   const it=all.find(x=>x.id===b.dataset.id);if(!it)return;
   copyToMine(it);
@@ -1144,7 +1148,7 @@ async function quick(e){
   const b=e.target.closest("[data-a]");if(!b)return;
   const it=all.find(x=>x.id===b.dataset.id);if(!it)return;
   const a=b.dataset.a;
-  if(a==="edit"){readOnly?detail(it.id):edit(it.id);return}
+  if(a==="edit"){detail(it.id);return}
   if(readOnly)return;
   if(a==="finish"){
     if(b.dataset.sure!=="1"){
