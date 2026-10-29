@@ -119,6 +119,13 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
 .scrim.open{opacity:1;pointer-events:auto}
 .sheet{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:620px;max-height:92%;overflow-y:auto;background:var(--bg2);border:1px solid var(--line);border-bottom:0;border-radius:24px 24px 0 0;padding:10px 18px calc(22px + env(safe-area-inset-bottom,0px));z-index:21;transform:translateY(105%);transition:transform .25s ease}
 .sheet.open{transform:none}
+.tokerr{background:color-mix(in srgb,var(--red) 14%,var(--card));border:1px solid var(--red);border-radius:12px;padding:10px 12px;font-weight:700;font-size:13.5px;margin:8px 0;line-height:1.45}
+.steps{padding-left:20px;margin:8px 0;line-height:1.75;font-weight:600}
+.steps a{color:var(--cyan);font-weight:800}
+.tip{background:color-mix(in srgb,var(--gold) 14%,var(--card));border:1px solid color-mix(in srgb,var(--gold) 40%,var(--line));border-radius:14px;padding:12px 14px;font-size:13.5px;font-weight:600;margin:12px 0;line-height:1.5}
+.tip b{font-weight:800}
+.tip-h{display:flex;align-items:center;gap:8px;font-family:var(--head);font-weight:800;font-size:14px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:8px;color:var(--text)}
+.tip-h span{background:var(--gold);color:#1a1200;border-radius:8px;padding:3px 8px;font-size:12px;letter-spacing:.06em}
 .seasontot{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:11px 12px;font-weight:800;min-height:44px}
 .sgrid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px}
 .sbox2{display:grid;gap:4px;font-size:12px;color:var(--muted);font-weight:800}
@@ -396,7 +403,7 @@ function del(id){
 }
 
 /* ================= GitHub Gist sync ================= */
-let pushT=null, syncing=false;
+let pushT=null, syncing=false, lastErr="";
 const tok=()=>ls.get(KTOK);
 function dot(s){$("syncDot").className="d "+(s||"")}
 async function gh(path,opt={}){
@@ -429,17 +436,17 @@ async function pull(){
   try{merge(JSON.parse(txt||"[]"))}catch(e){}
 }
 async function sync(){
-  if(!tok()||syncing)return;
+  if(readOnly||!tok()||syncing)return;
   syncing=true;dot("busy");
   try{
     await pull();saveLocal();render();
     const id=ls.get(KGIST);
     await gh("/gists/"+id,{method:"PATCH",body:JSON.stringify({files:{[FILE]:{content:JSON.stringify(all)}}})});
-    dot("ok");
-  }catch(e){dot("err");console.warn(e)}
+    dot("ok");lastErr="";
+  }catch(e){dot("err");console.warn(e);lastErr=/40[134]/.test(String(e.message))?"Sync failed: your token is invalid or is missing the gist permission. Tap Disconnect, then connect again with a new token that has ONLY gist ticked.":"Sync failed: couldn’t reach GitHub. Check your internet and tap Sync now."}
   syncing=false;
 }
-function schedulePush(){if(!tok())return;clearTimeout(pushT);pushT=setTimeout(sync,1500)}
+function schedulePush(){if(readOnly||!tok())return;clearTimeout(pushT);pushT=setTimeout(sync,1500)}
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")sync()});
 
 /* ================= cover search ================= */
@@ -819,6 +826,21 @@ function detail(id){
     ${i.note?`<p style="margin:14px 0 0;white-space:pre-wrap">${esc(i.note)}</p>`:""}
     ${safe(i.link)?`<div class="actions" style="margin-top:14px"><a class="btn main link" style="justify-content:center" href="${esc(safe(i.link))}" target="_blank" rel="noopener">Open ↗</a></div>`:""}`);
 }
+function checkLeak(){
+  let mine=[];try{mine=JSON.parse(ls.get(KEY)||"[]")}catch(e){}
+  const ids=new Set(all.map(i=>i.id));
+  const leaked=mine.filter(i=>i&&!i.deleted&&ids.has(i.id)&&!String(i.id).startsWith("__"));
+  if(!leaked.length)return;
+  const bar=document.createElement("div");bar.className="tokerr";bar.style.marginTop="12px";
+  bar.innerHTML=`${leaked.length} item${leaked.length>1?"s":""} from this shelf got copied into your own shelf by an old bug. <button class="btn" id="fixLeak" style="height:38px;margin-top:8px;display:block">Remove ${leaked.length>1?"them":"it"} from my shelf</button>`;
+  $("banner").after(bar);
+  $("fixLeak").onclick=()=>{
+    const now=Date.now(),bad=new Set(leaked.map(i=>i.id));
+    const fixed=mine.map(i=>bad.has(i.id)?{id:i.id,deleted:true,updated:now}:i);
+    try{localStorage.setItem(KEY,JSON.stringify(fixed))}catch(e){}
+    bar.textContent="Done. Open your own shelf and it will clean up and sync.";
+  };
+}
 async function loadShared(){
   try{
     const r=await fetch("https://api.github.com/gists/"+encodeURIComponent(SHARE),{headers:{"Accept":"application/vnd.github+json"}});
@@ -829,6 +851,7 @@ async function loadShared(){
     const pr=Array.isArray(arr)?arr.find(i=>i&&i.id==="__profile"):null;sharedName=pr&&pr.name?pr.name:"";
     all=Array.isArray(arr)?arr.filter(i=>i&&i.id&&i.title&&!i.deleted):[];
     render();
+    checkLeak();
   }catch(e){$("bannerTxt").textContent="Couldn’t load this shelf. Check the link.";}
 }
 
@@ -925,19 +948,27 @@ function syncSheet(){
   <div class="f"><label for="nameIn">Your name (shows under the logo)</label>
     <div class="finder"><input id="nameIn" value="${esc(getName())}" placeholder="Your name" autocomplete="given-name"><button class="go" id="nameSave">Save</button></div></div>
   <h2 style="margin-top:8px">Sync across devices</h2>
-  ${on?`<p class="hint">Connected to GitHub. Your shelf saves to a private Gist and syncs every time you change something or reopen the page.</p>
+  ${on?`${lastErr?`<div class="tokerr">${esc(lastErr)}</div>`:""}<p class="hint">Connected to GitHub. Your shelf saves to a private Gist and syncs every time you change something or reopen the page.</p>
   <div class="f" style="margin-top:14px"><label for="shareLink">Share link for friends (read only)</label>
     <input id="shareLink" readonly value="${esc(location.origin+location.pathname+"?u="+(ls.get(KGIST)||""))}">
     <div class="hint">They see your covers, ratings, reviews and where to watch. They can’t edit.</div></div>
   <div class="actions"><button class="btn main" id="setShare">Copy share link</button></div>
+  <div class="tip"><div class="tip-h"><span>NB</span>Read this please</div><b>Keep your token safe.</b> Copy it and save it in a notes app or password manager. You’ll need it when you switch to a new phone or browser. Never share it with anyone.</div>
+  <div class="actions"><button class="btn" id="setCopyTok">Copy my token</button></div>
   <div class="actions"><button class="btn" id="setSyncNow">Sync now</button><button class="btn danger" id="setOff">Disconnect</button></div>`:
-  `<p class="hint">Your shelf saves to a private GitHub Gist. Do this once on each device:</p>
-  <ol class="hint" style="padding-left:18px;line-height:1.7">
-    <li>Open github.com/settings/tokens and choose “Generate new token (classic)”</li>
-    <li>Tick only the <b>gist</b> box, set expiration to “No expiration”</li>
-    <li>Copy the token and paste it below</li>
+  `<p class="hint">Your shelf saves to a private GitHub Gist. Do this once on each device (you need a free GitHub account):</p>
+  <ol class="steps">
+    <li>Open the <a href="https://github.com/settings/tokens/new?scopes=gist&description=Mi%20Robo%20Shelf&default_expires_at=none" target="_blank" rel="noopener">GitHub token page</a> and sign in</li>
+    <li>Make sure the <b>gist</b> box is ticked</li>
+    <li>Set expiration to <b>No expiration</b></li>
+    <li>Scroll down and tap <b>Generate token</b></li>
+    <li>Copy the token (starts with <b>ghp_</b>) and paste it below</li>
   </ol>
+  <div class="tip"><div class="tip-h"><span>NB</span>Read this please</div>
+    <b>Tick ONLY the “gist” box.</b> Don’t skip it and don’t tick anything else, or sync won’t work.<br>
+    GitHub shows the token only once, so <b>save it in a notes app</b> for your next phone. Lost it? Make a new one and your shelf comes back. Never share it.</div>
   <div class="f"><label for="tokIn">GitHub token</label><input id="tokIn" type="password" autocomplete="off" placeholder="ghp_…"></div>
+  <div class="tokerr" id="tokErr" hidden></div>
   <div class="actions"><button class="btn main" id="setSave">Connect</button></div>`}`);
 }
 $("sheet").addEventListener("click",async e=>{
@@ -945,11 +976,27 @@ $("sheet").addEventListener("click",async e=>{
   if(b.id==="installBtn"&&installEvt){installEvt.prompt();try{await installEvt.userChoice}catch(err){}installEvt=null;closeSheet();return}
   if(b.id==="nameSave"){setName($("nameIn").value.trim());toast("Name saved");return}
   if(b.id==="setSave"){
-    const t=$("tokIn").value.trim();if(!t){toast("Paste your token first");return}
-    ls.set(KTOK,t);ls.del(KGIST);b.textContent="Connecting…";
-    try{await gh("/user");await sync();closeSheet();toast("Synced with GitHub")}
-    catch(err){ls.del(KTOK);dot("err");b.textContent="Connect";toast("Token didn’t work. Check the gist box.")}
+    const t=$("tokIn").value.trim();const err=$("tokErr");err.hidden=true;
+    if(!t){err.textContent="Paste your token first.";err.hidden=false;return}
+    b.textContent="Checking…";
+    const fail=m=>{err.textContent=m;err.hidden=false;b.textContent="Connect"};
+    try{
+      const r=await fetch("https://api.github.com/user",{headers:{"Accept":"application/vnd.github+json","Authorization":"Bearer "+t}});
+      if(r.status===401){fail("GitHub didn’t accept that token. Copy it again from GitHub, with no spaces.");return}
+      const sc=r.headers.get("x-oauth-scopes");
+      if(sc!==null){
+        const list=sc.split(",").map(x=>x.trim()).filter(Boolean);
+        if(!list.includes("gist")){fail("This token is missing the gist permission. Make a new token and tick ONLY gist (use the button above).");return}
+        if(list.length>1){fail("This token has extra permissions ("+list.filter(x=>x!=="gist").join(", ")+"). For your safety, make a new token with ONLY gist ticked. Use the button above.");return}
+      }
+      ls.set(KTOK,t);ls.del(KGIST);b.textContent="Connecting…";
+      await sync();
+      if(lastErr){ls.del(KTOK);dot("err");fail("Couldn’t save to GitHub. Make sure gist is ticked on your token.");return}
+      closeSheet();toast("Synced! Save your token somewhere safe.");
+    }catch(e2){fail("Couldn’t reach GitHub. Check your internet and try again.")}
+    return;
   }
+  if(b.id==="setCopyTok"){try{await navigator.clipboard.writeText(tok()||"");toast("Token copied. Save it somewhere safe.")}catch(err){toast("Couldn’t copy. Make a new token if you need one.")}return}
   if(b.id==="setOff"){ls.del(KTOK);ls.del(KGIST);dot("");closeSheet();toast("Disconnected. Data stays on this device.")}
   if(b.id==="setSyncNow"){await sync();toast("Synced")}
   if(b.id==="setShare"){
