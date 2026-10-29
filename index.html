@@ -462,8 +462,30 @@ async function searchMedia(src,q){
     return j.slice(0,8).map(x=>({title:x.show.name,cover:x.show.image?.medium||"",tvId:x.show.id,running:x.show.status==="Running",total:0}));
   }
   if(src==="movie"){
-    const j=await (await fetch("https://itunes.apple.com/search?media=movie&limit=8&term="+encodeURIComponent(q))).json();
-    return (j.results||[]).map(x=>({title:x.trackName,creator:x.artistName||"",cover:(x.artworkUrl100||"").replace("100x100","400x600"),total:0}));
+    let out=[];
+    // 1) IMDb suggestions: huge catalog with posters, no key needed
+    try{
+      const k=(q.trim()[0]||"x").toLowerCase().replace(/[^a-z0-9]/,"x");
+      const j=await jget("https://v2.sg.media-imdb.com/suggestion/"+k+"/"+encodeURIComponent(q.trim())+".json");
+      out=(j.d||[]).filter(x=>x&&/^tt/.test(x.id||"")&&["movie","tvMovie","short","video"].includes(x.qid)).slice(0,8)
+        .map(x=>({title:x.l,year:x.y||"",creator:"",cover:x.i&&x.i.imageUrl?x.i.imageUrl.replace(/\._V1_.*\.jpg$/,"._V1_UX400.jpg"):"",total:0}));
+    }catch(e){}
+    // 2) Wikipedia film pages
+    if(!out.length){
+      try{
+        const j=await jget("https://en.wikipedia.org/w/api.php?action=query&generator=search&gsrlimit=8&gsrsearch="+encodeURIComponent(q+" film")+"&prop=pageimages|description&piprop=thumbnail&pithumbsize=400&format=json&origin=*");
+        out=Object.values((j.query&&j.query.pages)||{}).filter(p=>/film|movie/i.test(p.description||"")).sort((a,b)=>a.index-b.index).slice(0,8)
+          .map(p=>({title:p.title.replace(/\s*\((\d{4} )?film\)$/i,""),year:((p.description||"").match(/(\d{4}) /)||[])[1]||"",creator:((p.description||"").match(/ by (.+)$/)||[])[1]||"",cover:p.thumbnail?p.thumbnail.source:"",total:0}));
+      }catch(e){}
+    }
+    // 3) Apple catalog as last resort
+    if(!out.length){
+      try{
+        const j=await jget("https://itunes.apple.com/search?media=movie&limit=8&term="+encodeURIComponent(q));
+        out=(j.results||[]).map(x=>({title:x.trackName,year:(x.releaseDate||"").slice(0,4),creator:x.artistName||"",cover:(x.artworkUrl100||"").replace("100x100","400x600"),total:0}));
+      }catch(e){}
+    }
+    return out;
   }
   if(src==="book"){
     const j=await (await fetch("https://openlibrary.org/search.json?limit=8&fields=title,author_name,cover_i,number_of_pages_median&q="+encodeURIComponent(q))).json();
@@ -690,7 +712,7 @@ function drawEdit(){
   <div class="f"><label for="eTitle">Title</label>
     <div class="finder"><input id="eTitle" value="${esc(d.title)}" autocomplete="off" placeholder="e.g. Vinland Saga">${c.src?`<button class="go" id="findBtn">Find</button>`:""}</div>
     ${c.src?`<div class="hint">Tap Find to grab the cover and total ${c.unit==="Ep"?"episodes":c.unit==="Ch"?"chapters":c.unit==="Pg"?"pages":"info"}.</div>`:""}
-    <div class="results" id="results">${found.map((r,k)=>`<button class="res" data-pick="${k}">${r.cover?`<img src="${esc(r.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:`<span class="noimg"></span>`}<span>${esc(r.title)}</span></button>`).join("")}</div>
+    <div class="results" id="results">${found.map((r,k)=>`<button class="res" data-pick="${k}">${r.cover?`<img src="${esc(r.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:`<span class="noimg"></span>`}<span>${esc(r.title)}${r.year?" ("+esc(r.year)+")":""}</span></button>`).join("")}</div>
   </div>
   <div class="f"><label for="eBy">Creator (writer, director, channel)</label><input id="eBy" value="${esc(d.creator)}" autocomplete="off" placeholder="e.g. Makoto Yukimura"></div>
   <div class="f"><span class="lbl">Status</span><div class="seg">${STATUS.map(x=>`<button data-k="status" data-v="${x.id}" aria-pressed="${x.id===d.status}">${x.label}</button>`).join("")}</div></div>
