@@ -530,10 +530,14 @@ function schedulePush(){if(readOnly||!tok())return;clearTimeout(pushT);pushT=set
 document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")sync()});
 
 /* ================= cover search ================= */
+let aniDown=false;
 async function aniSearch(q,type,formats){
   const fmt=formats?",format_in:["+formats+"]":"";
   const query="query($s:String){Page(perPage:8){media(search:$s,type:"+type+fmt+",sort:SEARCH_MATCH){title{english romaji}coverImage{large}episodes chapters status countryOfOrigin format staff(perPage:8,sort:RELEVANCE){edges{role node{name{full}}}} studios(isMain:true){nodes{name}}}}}";
-  const r=await fetch("https://graphql.anilist.co",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({query,variables:{s:q}})});
+  if(aniDown)return [];
+  let r;
+  try{r=await tfetch("https://graphql.anilist.co",{method:"POST",headers:{"Content-Type":"application/json","Accept":"application/json"},body:JSON.stringify({query,variables:{s:q}})},6000)}catch(e){aniDown=true;return []}
+  if(!r.ok){if(r.status===429||r.status>=500)aniDown=true;return []}
   const j=await r.json();
   return (j.data&&j.data.Page&&j.data.Page.media)||[];
 }
@@ -570,7 +574,8 @@ async function movieInfo(title,year){
 async function searchMedia(src,q){
   if(src==="manga"){
     const nz=t=>String(t||"").normalize("NFC").toLowerCase().replace(/[^\p{L}\p{N}]/gu,"");
-    const [al,jk]=await Promise.all([aniSearch(q,"MANGA").catch(()=>[]),jikan("manga",q).catch(()=>[])]);
+    const mdP=jget("https://api.mangadex.org/manga?limit=8&order[relevance]=desc&contentRating[]=safe&contentRating[]=suggestive&includes[]=cover_art&includes[]=author&includes[]=artist&title="+encodeURIComponent(q)).then(j=>j.data||[]).catch(()=>[]);
+    const [al,jk,md]=await Promise.all([aniSearch(q,"MANGA").catch(()=>[]),jikan("manga",q).catch(()=>[]),mdP]);
     const out=[];
     const add=r=>{if(!r.title||out.some(o=>nz(o.title)===nz(r.title)))return;out.push(r)};
     for(const m of al){
@@ -584,6 +589,19 @@ async function searchMedia(src,q){
       const cr=(x.authors||[]).slice(0,2).map(a=>flipName(a.name)).join(" & ");
       if(out.some(o=>nz(o.title)===nz(x.title)))continue;
       add({title:x.title_english||x.title,cover:jkCover(x),total:x.chapters||0,kind:k,creator:cr,sub:k+(cr?" · "+cr:"")});
+    }
+    for(const m of md){
+      const a=m.attributes||{},rel=m.relationships||[];
+      const enAlt=(a.altTitles||[]).map(t=>t.en).filter(Boolean);
+      const main=(a.title&&a.title.en)||enAlt[0]||Object.values(a.title||{})[0];
+      const names=[main,...enAlt,...Object.values(a.title||{})].filter(Boolean);
+      if(!names.length||out.some(o=>names.some(n=>nz(n)===nz(o.title))))continue;
+      const lang=String(a.originalLanguage||"");
+      const k=lang==="ko"?"Manhwa":lang.startsWith("zh")?"Manhua":"Manga";
+      const people=[...new Set(rel.filter(r=>(r.type==="author"||r.type==="artist")&&r.attributes&&r.attributes.name).map(r=>r.attributes.name))].slice(0,2);
+      const cv=rel.find(r=>r.type==="cover_art"&&r.attributes&&r.attributes.fileName);
+      const total=a.status==="completed"?(parseInt(a.lastChapter)||0):0;
+      add({title:names[0],cover:cv?`https://uploads.mangadex.org/covers/${m.id}/${cv.attributes.fileName}.256.jpg`:"",total,kind:k,creator:people.join(" & "),sub:k+(people.length?" · "+people.join(" & "):"")});
     }
     if(!out.length){
       try{
@@ -705,7 +723,7 @@ async function searchMedia(src,q){
     let limited=false;
     const gb=async extra=>{
       try{
-        const r=await fetch("https://www.googleapis.com/books/v1/volumes?maxResults=20&printType=books"+extra);
+        const r=await tfetch("https://www.googleapis.com/books/v1/volumes?maxResults=20&printType=books"+extra);
         if(r.status===429||r.status===403){limited=true;return[]}
         if(!r.ok)return[];
         return gbMap(await r.json());
@@ -990,7 +1008,7 @@ function drawEdit(){
   <div class="f"><label for="eTitle">Title</label>
     <div class="finder"><input id="eTitle" value="${esc(d.title)}" autocomplete="off" placeholder="e.g. Vinland Saga">${c.src?`<button class="go" id="findBtn">Find</button>`:""}</div>
     ${c.src?`<div class="hint">${c.id==="essay"?"Find searches Substack first, then other essays. Pasting the article link below also fills everything in.":"Tap Find to grab the cover and total "+(c.unit==="Ep"?"episodes":c.unit==="Ch"?"chapters":c.unit==="Pg"?"pages":"info")+"."}</div>`:""}
-    <div class="results" id="results">${found.map((r,k)=>`<button class="res" data-pick="${k}">${r.cover?`<img src="${esc(r.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:`<span class="noimg"></span>`}<span>${esc(r.title)}${r.year?" ("+esc(r.year)+")":""}</span>${r.sub?`<span style="color:var(--muted);font-weight:500">${esc(r.sub)}</span>`:""}</button>`).join("")}</div>
+    <div class="results" id="results">${found.map((r,k)=>`<button class="res" data-pick="${k}">${r.cover?`<img src="${esc(r.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">`:`<span class="noimg"></span>`}<span>${esc(r.title)}${r.year?" ("+esc(r.year)+")":""}</span>${r.sub?`<span style="color:var(--muted);font-weight:500">${esc(r.sub)}</span>`:""}</button>`).join("")}</div>
   </div>
   <div class="f"><label for="eBy">Creator (writer, director, channel)</label><input id="eBy" value="${esc(d.creator)}" autocomplete="off" placeholder="e.g. Makoto Yukimura"></div>
   ${KINDS[c.id]?`<div class="f"><span class="lbl">Type</span><div class="seg">${KINDS[c.id].map(t=>`<button data-k="kind" data-v="${t}" aria-pressed="${d.kind===t}">${t}</button>`).join("")}</div></div>`:""}
@@ -1107,7 +1125,8 @@ $("sheet").addEventListener("click",async e=>{
   if(b.dataset.step){const inp=$("eCur");inp.value=Math.max(0,(+inp.value||0)+(+b.dataset.step));return}
   if(b.id==="findBtn"){
     readEdit();if(!draft.title){toast("Type a title first");return}
-    b.textContent="…";
+    b.textContent="…";b.disabled=true;
+    const rs=$("results");if(rs){rs.innerHTML='<span class="hint" style="padding:8px 2px">Searching…</span>'}
     try{found=await searchMedia(cat(draft.cat).src,draft.title);if(!found.length)toast("No matches. Just save it manually.")}
     catch(err){toast(err&&err.message==="LIMIT"?"Google’s free book search is busy right now. Try again in a while, or type it in.":"Search failed. Check your internet.")}
     const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;return;
@@ -1193,7 +1212,8 @@ function ytId(u){
   }catch(e){}
   return "";
 }
-async function jget(u){const r=await fetch(u);if(!r.ok)throw 0;return r.json()}
+function tfetch(u,opt,ms){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms||7000);return fetch(u,{...(opt||{}),signal:c.signal}).finally(()=>clearTimeout(t))}
+async function jget(u){const r=await tfetch(u);if(!r.ok)throw 0;return r.json()}
 async function fetchMeta(link){
   const out={};let host="";
   try{host=new URL(link).hostname.replace(/^www\./,"")}catch(e){return out}
