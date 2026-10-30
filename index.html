@@ -341,7 +341,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
 /* ================= config ================= */
 const CATS=[
   {id:"manga",label:"Manga & Co",short:"Manga",unit:"Ch",c:"#ff8a3d",src:"manga",seasons:true},
-  {id:"series",label:"Series",unit:"Ep",c:"#3e8bff",src:"tv",seasons:true},
+  {id:"series",label:"Series",unit:"Ep",c:"#ff4f8b",src:"tv",seasons:true},
   {id:"movie",label:"Movies",unit:"",c:"#9b5bff",src:"movie"},
   {id:"video",label:"Videos",unit:"",c:"#9bdc3a",src:""},
   {id:"book",label:"Books",unit:"Pg",c:"#2fbf85",src:"book"},
@@ -619,32 +619,46 @@ async function searchMedia(src,q){
     return sub.concat(hn);
   }
   if(src==="book"){
-    const nz=t=>String(t||"").toLowerCase().replace(/[^\p{L}\p{N}]/gu,"");
-    let out=[];
-    try{
-      const bn=/[\u0980-\u09FF]/.test(q);
-      const j=await jget("https://www.googleapis.com/books/v1/volumes?maxResults=16&printType=books"+(bn?"&langRestrict=bn":"")+"&q="+encodeURIComponent(q.trim()));
-      const seen=new Set();
-      for(const it of (j.items||[])){
-        const v=it.volumeInfo||{};if(!v.title)continue;
-        const au=(v.authors||[]).slice(0,2).join(" & ");
-        const key=nz(v.title)+"|"+nz((v.authors||[])[0]);
-        if(seen.has(key))continue;seen.add(key);
-        let cv=(v.imageLinks&&(v.imageLinks.thumbnail||v.imageLinks.smallThumbnail))||"";
-        cv=cv.replace(/^http:/,"https:").replace("&edge=curl","");
-        out.push({title:v.title,creator:au,cover:cv,total:+v.pageCount||0,year:String(v.publishedDate||"").slice(0,4),sub:au});
-        if(out.length>=8)break;
-      }
-    }catch(e){}
-    if(out.length<3){
-      try{
-        const j=await jget("https://openlibrary.org/search.json?limit=8&fields=title,author_name,cover_i,number_of_pages_median,first_publish_year&q="+encodeURIComponent(q));
-        for(const d of (j.docs||[])){
-          if(out.some(o=>nz(o.title)===nz(d.title)))continue;
-          out.push({title:d.title,creator:(d.author_name||[])[0]||"",cover:d.cover_i?`https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg`:"",total:d.number_of_pages_median||0,year:d.first_publish_year||"",sub:(d.author_name||[])[0]||""});
-        }
-      }catch(e){}
+    q=q.normalize("NFC").trim();
+    const nz=t=>String(t||"").normalize("NFC").toLowerCase().replace(/[^\p{L}\p{N}\p{M}]/gu,"");
+    const bn=/[\u0980-\u09FF]/.test(q);
+    const gbMap=j=>(j.items||[]).map(it=>{
+      const v=it.volumeInfo||{};if(!v.title)return null;
+      let cv=(v.imageLinks&&(v.imageLinks.thumbnail||v.imageLinks.smallThumbnail))||"";
+      cv=cv.replace(/^http:/,"https:").replace("&edge=curl","");
+      const au=(v.authors||[]).slice(0,2).join(" & ");
+      return {title:v.title,creator:au,cover:cv,total:+v.pageCount||0,year:String(v.publishedDate||"").slice(0,4),sub:au};
+    }).filter(Boolean);
+    const gb=extra=>jget("https://www.googleapis.com/books/v1/volumes?maxResults=20&printType=books"+extra).then(gbMap).catch(()=>[]);
+    const ol=()=>jget("https://openlibrary.org/search.json?limit=10&fields=title,author_name,cover_i,number_of_pages_median,first_publish_year&q="+encodeURIComponent(q))
+      .then(j=>(j.docs||[]).map(d=>({title:d.title,creator:(d.author_name||[])[0]||"",cover:d.cover_i?`https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg`:"",total:d.number_of_pages_median||0,year:d.first_publish_year||"",sub:(d.author_name||[])[0]||""}))).catch(()=>[]);
+    const bnWiki=()=>jget("https://bn.wikipedia.org/w/api.php?action=query&generator=search&gsrlimit=6&gsrsearch="+encodeURIComponent(q)+"&prop=pageimages|extracts&exintro=1&explaintext=1&exsentences=2&piprop=thumbnail&pithumbsize=300&pilicense=any&format=json&origin=*")
+      .then(j=>Object.values((j.query&&j.query.pages)||{}).sort((a,b)=>a.index-b.index)
+        .filter(p=>/বই|উপন্যাস|গ্রন্থ|কাব্য|কবিতা|গল্প|সংকলন/.test(p.extract||""))
+        .map(p=>{
+          const m=(p.extract||"").match(/([\u0980-\u09FF]+(?:\s[\u0980-\u09FF]+){0,3})\s*(?:-?এর\s)?(?:রচিত|লিখিত|লেখা)/);
+          const au=m?m[1].split(/\s+/).slice(-2).join(" "):"";
+          return {title:p.title.replace(/\s*\(.*\)$/,""),creator:au,cover:p.thumbnail?p.thumbnail.source:"",total:0,year:"",sub:au||"Wikipedia"};
+        })).catch(()=>[]);
+    let lists;
+    if(bn){
+      lists=await Promise.all([
+        gb("&langRestrict=bn&q="+encodeURIComponent(q)),
+        gb("&q="+encodeURIComponent('intitle:"'+q+'"')),
+        gb("&q="+encodeURIComponent(q)),
+        bnWiki(),ol()
+      ]);
+    }else{
+      lists=await Promise.all([gb("&q="+encodeURIComponent(q))]);
+      if(lists[0].length<3)lists.push(await ol());
     }
+    const nq=nz(q),seen=new Set(),out=[];
+    const score=r=>{const t=nz(r.title);return(t===nq?4:t.startsWith(nq)?3:t.includes(nq)?2:nq.includes(t)&&t.length>3?1:0)+(r.cover?0.5:0)+(r.creator?0.3:0)};
+    for(const r of lists.flat()){
+      const key=nz(r.title)+"|"+nz(String(r.creator).split(" & ")[0]);
+      if(seen.has(key))continue;seen.add(key);out.push(r);
+    }
+    out.sort((a,b)=>score(b)-score(a));
     return out.slice(0,8);
   }
   return [];
