@@ -537,6 +537,9 @@ async function aniSearch(q,type,formats){
   const j=await r.json();
   return (j.data&&j.data.Page&&j.data.Page.media)||[];
 }
+async function jikan(path,q){const j=await jget("https://api.jikan.moe/v4/"+path+"?limit=10&q="+encodeURIComponent(q));return j.data||[]}
+const flipName=n=>{const p=String(n||"").split(",").map(x=>x.trim()).filter(Boolean);return p.length===2?p[1]+" "+p[0]:String(n||"")};
+const jkCover=x=>(x.images&&x.images.jpg&&(x.images.jpg.large_image_url||x.images.jpg.image_url))||"";
 function kindFromText(t){t=String(t||"");if(/anime|japanese animated/i.test(t))return"Anime";if(/animated|animation|cartoon/i.test(t))return"Animation";return""}
 function creatorOf(m,src){
   const ed=(m.staff&&m.staff.edges)||[];
@@ -566,12 +569,33 @@ async function movieInfo(title,year){
 }
 async function searchMedia(src,q){
   if(src==="manga"){
-    const media=await aniSearch(q,"MANGA");
-    return media.map(m=>{
+    const nz=t=>String(t||"").normalize("NFC").toLowerCase().replace(/[^\p{L}\p{N}]/gu,"");
+    const [al,jk]=await Promise.all([aniSearch(q,"MANGA").catch(()=>[]),jikan("manga",q).catch(()=>[])]);
+    const out=[];
+    const add=r=>{if(!r.title||out.some(o=>nz(o.title)===nz(r.title)))return;out.push(r)};
+    for(const m of al){
       const cr=creatorOf(m,"manga");
       const k=m.format==="NOVEL"?"Novel":({KR:"Manhwa",CN:"Manhua",TW:"Manhua",JP:"Manga"}[m.countryOfOrigin]||"");
-      return {title:m.title.english||m.title.romaji,cover:m.coverImage?.large||"",total:m.chapters||0,kind:k,creator:cr,sub:k+(cr?" · "+cr:"")};
-    });
+      add({title:m.title.english||m.title.romaji,cover:m.coverImage?.large||"",total:m.chapters||0,kind:k,creator:cr,sub:k+(cr?" · "+cr:"")});
+    }
+    for(const x of jk){
+      const ty=String(x.type||"");
+      const k=/manhwa/i.test(ty)?"Manhwa":/manhua/i.test(ty)?"Manhua":/novel/i.test(ty)?"Novel":"Manga";
+      const cr=(x.authors||[]).slice(0,2).map(a=>flipName(a.name)).join(" & ");
+      if(out.some(o=>nz(o.title)===nz(x.title)))continue;
+      add({title:x.title_english||x.title,cover:jkCover(x),total:x.chapters||0,kind:k,creator:cr,sub:k+(cr?" · "+cr:"")});
+    }
+    if(!out.length){
+      try{
+        const j=await jget("https://kitsu.io/api/edge/manga?page[limit]=8&filter[text]="+encodeURIComponent(q));
+        for(const d of (j.data||[])){
+          const a=d.attributes||{},st=String(a.subtype||"");
+          const k=st==="manhwa"?"Manhwa":st==="manhua"?"Manhua":st==="novel"?"Novel":"Manga";
+          add({title:(a.titles&&a.titles.en)||a.canonicalTitle,cover:(a.posterImage&&(a.posterImage.medium||a.posterImage.original))||"",total:a.chapterCount||0,kind:k,creator:"",sub:k});
+        }
+      }catch(e){}
+    }
+    return out.slice(0,8);
   }
   if(src==="tv"){
     const tvP=(async()=>{
@@ -586,8 +610,10 @@ async function searchMedia(src,q){
     })();
     const anP=(async()=>{
       try{
-        const media=await aniSearch(q,"ANIME","TV,TV_SHORT,ONA,OVA,SPECIAL");
-        return media.map(m=>{const cr=creatorOf(m,"anime");return {title:m.title.english||m.title.romaji,cover:m.coverImage?.large||"",total:m.episodes||0,kind:"Anime",creator:cr,running:m.status==="RELEASING",sub:"Anime"+(cr?" · "+cr:"")}});
+        const media=await aniSearch(q,"ANIME","TV,TV_SHORT,ONA,OVA,SPECIAL").catch(()=>[]);
+        if(media.length)return media.map(m=>{const cr=creatorOf(m,"anime");return {title:m.title.english||m.title.romaji,cover:m.coverImage?.large||"",total:m.episodes||0,kind:"Anime",creator:cr,running:m.status==="RELEASING",sub:"Anime"+(cr?" · "+cr:"")}});
+        const jk=await jikan("anime",q).catch(()=>[]);
+        return jk.filter(x=>x.type!=="Movie").map(x=>{const cr=(x.studios||[]).slice(0,1).map(s=>s.name).join("");return {title:x.title_english||x.title,cover:jkCover(x),total:x.episodes||0,kind:"Anime",creator:cr,running:!!x.airing,sub:"Anime"+(cr?" · "+cr:"")}});
       }catch(e){return[]}
     })();
     const [tv,an]=await Promise.all([tvP,anP]);
@@ -613,7 +639,11 @@ async function searchMedia(src,q){
     // anime films from AniList (also tags them as Anime)
     try{
       const nz=t=>String(t||"").toLowerCase().replace(/[^a-z0-9]/g,"");
-      const an=await aniSearch(q,"ANIME","MOVIE");
+      let an=await aniSearch(q,"ANIME","MOVIE").catch(()=>[]);
+      if(!an.length){
+        const jk=await jikan("anime",q).catch(()=>[]);
+        an=jk.filter(x=>x.type==="Movie").map(x=>({title:{english:x.title_english,romaji:x.title},coverImage:{large:jkCover(x)},staff:{edges:[]},studios:{nodes:(x.studios||[]).map(s=>({name:s.name}))}}));
+      }
       for(const m of an.slice(0,3)){
         const t=m.title.english||m.title.romaji,cr=creatorOf(m,"anime");
         const ex=out.find(o=>nz(o.title)===nz(t));
