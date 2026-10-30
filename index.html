@@ -101,68 +101,10 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
 .tile{position:relative;text-align:left;display:flex;flex-direction:column;gap:6px}
 .cv{position:relative;aspect-ratio:2/3;border-radius:14px;overflow:hidden;background:var(--card2);display:block;width:100%}
 .cv img{width:100%;height:100%;object-fit:cover;display:block}
-.cv .ph{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;padding:10px;background:radial-gradient(120% 70% at 85% 0%,rgba(255,255,255,.08),transparent 60%),repeating-linear-gradient(135deg,rgba(255,255,255,.035) 0 10px,transparent 10px 22px),linear-gradient(165deg,#2e2848 0%,#17142a 100%)}
+.cv .ph{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:flex-end;padding:10px;background:radial-gradient(120% 70% at 85% 0%,rgba(255,255,255,.08),transparent 60%),repeating-linear-gradient(135deg,rgba(255,255,255,.035) 0 10px,transparent 10px 22px),linear-gradient(165deg,color-mix(in srgb,var(--c) 30%,#1b1729) 0%,color-mix(in srgb,var(--c) 9%,#110e1b) 100%)}
 .cv .ph b{font-family:var(--head);font-weight:800;font-size:15px;line-height:1.15;color:#fff;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;text-shadow:0 1px 6px rgba(0,0,0,.35)}
 .cont .cv .ph b{font-size:10px}
 .badge.o{background:rgba(12,10,20,.35);box-shadow:inset 0 0 0 1.5px var(--b,rgba(255,255,255,.85))}
-.cv.obj{background:none;overflow:visible;border-radius:0;container-type:inline-size}
-.cv.obj .ob-face{position:absolute;overflow:hidden;z-index:1}
-.cv.obj .ob-face>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2}
-.cv.obj .gp{position:absolute;inset:0;background:linear-gradient(160deg,var(--g1),var(--g2));display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#fff;padding:10%}
-.cv.obj .gp::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(12,10,20,.05),rgba(12,10,20,.6));pointer-events:none}
-.cv.obj .gp>*{position:relative;z-index:1}
-.cv.obj .tags,.cv.obj .pb{z-index:6}
-.clamp4{overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical}
-/* movies: a strip of film */
-.cv.movie .film{position:absolute;inset:0;border-radius:6px;background:#15121d;box-shadow:0 8px 18px rgba(0,0,0,.45)}
-.cv.movie .film::before,.cv.movie .film::after{content:"";position:absolute;top:3%;bottom:3%;width:4.6cqw;background:repeating-linear-gradient(180deg,rgba(240,236,255,.8) 0 3.6cqw,transparent 3.6cqw 7.2cqw)}
-.cv.movie .film::before{left:3.4%}.cv.movie .film::after{right:3.4%}
-.cv.movie .ob-face{top:2.5%;bottom:2.5%;left:12%;right:12%;border-radius:3px}
-.cv.movie .gp{justify-content:flex-end;padding:12% 8%}
-.cv.movie .mv-t{font-family:var(--head),"Noto Serif Bengali",sans-serif;font-weight:800;font-size:12cqw;line-height:1.05;text-transform:uppercase;overflow-wrap:anywhere;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical}
-.cv.movie .mv-c{margin-top:8%;font-size:4.6cqw;font-weight:800;letter-spacing:.12em;opacity:.85;text-transform:uppercase}
-.cv.movie .tags{left:15%}
-.cv.movie .pb{left:12%;right:12%;bottom:2.5%}
-/* series: a stack of episodes */
-.cv.series .stk{position:absolute;border-radius:10px;background:linear-gradient(160deg,var(--g1),var(--g2))}
-.cv.series .stk.s2{top:0;left:12%;right:0;bottom:9%;opacity:.35}
-.cv.series .stk.s1{top:3.5%;left:6%;right:3%;bottom:4.5%;opacity:.6}
-.cv.series .ob-face{top:7%;left:0;right:6%;bottom:0;border-radius:10px;box-shadow:0 8px 18px rgba(0,0,0,.45)}
-.cv.series .gp::before{content:"";position:absolute;inset:0;z-index:1;background:repeating-linear-gradient(0deg,rgba(255,255,255,.05) 0 1px,transparent 1px 3px)}
-.cv.series .sr-t{font-family:var(--head),"Noto Serif Bengali",sans-serif;font-weight:800;font-size:11cqw;line-height:1.1;overflow-wrap:anywhere;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical}
-.cv.series .sr-m{margin-top:9%;font-size:4.8cqw;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:1.5cqw 3.5cqw;border:1px solid rgba(255,255,255,.65);border-radius:99px}
-.cv.series .tags{top:calc(7% + 8px)}
-.cv.series .pb{left:0;right:6%;bottom:0}
-/* manga: a paperback volume */
-.cv.manga .pages{position:absolute;top:2%;left:3%;right:0;bottom:0;border-radius:2px 6px 6px 2px;background:linear-gradient(90deg,#e6dec9,#fbf7ec 35%,#e2d9c2);box-shadow:0 8px 18px rgba(0,0,0,.4)}
-.cv.manga .ob-face{top:0;left:0;right:2.5%;bottom:2%;border-radius:2px 6px 6px 2px}
-.cv.manga .ob-face::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5%;z-index:3;background:linear-gradient(90deg,rgba(0,0,0,.4),rgba(255,255,255,.15))}
-.cv.manga .gp{justify-content:flex-start;align-items:flex-start;text-align:left;padding:30% 9% 0 12%}
-.cv.manga .gp::before{content:"";position:absolute;inset:0;background-image:radial-gradient(rgba(255,255,255,.28) 30%,transparent 33%);background-size:5cqw 5cqw;-webkit-mask-image:linear-gradient(200deg,#000,transparent 65%);mask-image:linear-gradient(200deg,#000,transparent 65%)}
-.cv.manga .mg-t{font-family:var(--head),"Noto Serif Bengali",sans-serif;font-weight:800;font-size:12.5cqw;line-height:1.02;text-transform:uppercase;overflow-wrap:anywhere;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical}
-.cv.manga .mg-band{position:absolute;left:0;right:0;bottom:0;height:20%;background:#f7f3ea;color:#18141f;z-index:2;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;padding:0 9% 0 12%;gap:1cqw}
-.cv.manga .mg-band b{font-size:5.4cqw;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.cv.manga .mg-band span{font-size:4.2cqw;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#e3266c}
-.cv.manga .pb{left:0;right:2.5%;bottom:2%}
-/* essays: a sheet of paper with a folded corner */
-.cv.essay .badge{background:rgba(28,24,36,.88)}
-.cv.essay .ob-face{inset:0;border-radius:5px;background:#f5f0e6;box-shadow:0 8px 18px rgba(0,0,0,.4);color:#1c1824}
-.cv.essay .ob-face::after{content:"";position:absolute;top:0;right:0;width:16cqw;height:16cqw;z-index:4;background:linear-gradient(225deg,var(--bg) 50%,#d8cfbd 50%);border-bottom-left-radius:3px}
-.cv.essay .es{position:absolute;inset:0;padding:22% 10% 9%;display:flex;flex-direction:column;z-index:1}
-.cv.essay .es-k{font-size:4.4cqw;font-weight:800;letter-spacing:.22em;text-transform:uppercase;color:#e3266c}
-.cv.essay .es-t{font-family:"Fraunces","Noto Serif Bengali",Georgia,serif;font-weight:600;font-size:10.5cqw;line-height:1.15;margin-top:6%;overflow-wrap:anywhere;overflow:hidden;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical}
-.cv.essay .es-a{font-size:4.8cqw;font-weight:700;color:#6a6278;margin-top:5%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cv.essay .es-l{flex:1;min-height:8%;margin-top:9%;background:repeating-linear-gradient(180deg,transparent 0 4.5cqw,rgba(28,24,36,.14) 4.5cqw calc(4.5cqw + 1px))}
-.cv.essay .es-img{position:relative;flex:none;height:42%;margin:-6% 0 4%;border-radius:3px;overflow:hidden;background:#e6dfd0}
-.cv.essay .es-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-/* videos: a player */
-.cv.video .ob-face{inset:0;border-radius:12px;background:#0d0b14;box-shadow:0 8px 18px rgba(0,0,0,.4)}
-.cv.video .play{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);width:24cqw;height:24cqw;border-radius:50%;background:rgba(12,10,20,.55);border:1.5px solid rgba(255,255,255,.85);z-index:4;display:grid;place-items:center}
-.cv.video .play::after{content:"";margin-left:2cqw;border-left:7cqw solid #fff;border-top:4.3cqw solid transparent;border-bottom:4.3cqw solid transparent}
-.cv.video .vt{position:absolute;left:8%;right:8%;bottom:13%;z-index:4;font-family:var(--head),"Noto Serif Bengali",sans-serif;font-weight:800;font-size:8.5cqw;line-height:1.15;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.6);word-break:break-word;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
-.cv.video .tl{position:absolute;left:8%;right:8%;bottom:6%;height:1.6cqw;border-radius:9px;background:rgba(255,255,255,.3);z-index:4}
-.cv.video .tl i{position:absolute;left:0;top:0;bottom:0;background:#ff4f8b;border-radius:inherit}
-.cv.video .tl i::after{content:"";position:absolute;right:-1.8cqw;top:50%;width:3.6cqw;height:3.6cqw;margin-top:-1.8cqw;border-radius:50%;background:#fff}
 .cv.book{background:none;overflow:visible;border-radius:0;container-type:inline-size}
 .cv.book .pages{position:absolute;top:3%;left:4%;right:0;bottom:0;border-radius:2px 7px 7px 2px;background:linear-gradient(90deg,#e6dec9,#fbf7ec 35%,#e2d9c2);box-shadow:0 8px 18px rgba(0,0,0,.4)}
 .cv.book .pages::after{content:"";position:absolute;inset:0;border-radius:inherit;background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.07) 2px 3px)}
@@ -730,7 +672,17 @@ async function searchMedia(src,q){
       const au=(v.authors||[]).slice(0,2).join(" & ");
       return {title:v.title,creator:au,cover:cv,total:+v.pageCount||0,year:String(v.publishedDate||"").slice(0,4),sub:au};
     }).filter(Boolean);
-    const gb=extra=>jget("https://www.googleapis.com/books/v1/volumes?maxResults=20&printType=books"+extra).then(gbMap).catch(()=>[]);
+    let limited=false;
+    const gb=async extra=>{
+      try{
+        const r=await fetch("https://www.googleapis.com/books/v1/volumes?maxResults=20&printType=books"+extra);
+        if(r.status===429||r.status===403){limited=true;return[]}
+        if(!r.ok)return[];
+        return gbMap(await r.json());
+      }catch(e){return[]}
+    };
+    const ck="omishelf.bs:"+q;
+    try{const c=sessionStorage.getItem(ck);if(c)return JSON.parse(c)}catch(e){}
     const ol=()=>jget("https://openlibrary.org/search.json?limit=10&fields=title,author_name,cover_i,number_of_pages_median,first_publish_year&q="+encodeURIComponent(q))
       .then(j=>(j.docs||[]).map(d=>({title:d.title,creator:(d.author_name||[])[0]||"",cover:d.cover_i?`https://covers.openlibrary.org/b/id/${d.cover_i}-M.jpg`:"",total:d.number_of_pages_median||0,year:d.first_publish_year||"",sub:(d.author_name||[])[0]||""}))).catch(()=>[]);
     const bnWiki=()=>jget("https://bn.wikipedia.org/w/api.php?action=query&generator=search&gsrlimit=6&gsrsearch="+encodeURIComponent(q)+"&prop=pageimages|extracts&exintro=1&explaintext=1&exsentences=2&piprop=thumbnail&pithumbsize=300&pilicense=any&format=json&origin=*")
@@ -741,26 +693,30 @@ async function searchMedia(src,q){
           const au=m?m[1].split(/\s+/).slice(-2).join(" "):"";
           return {title:p.title.replace(/\s*\(.*\)$/,""),creator:au,cover:p.thumbnail?p.thumbnail.source:"",total:0,year:"",sub:au||"Wikipedia"};
         })).catch(()=>[]);
+    const nq=nz(q);
+    const strong=l=>l.some(r=>{const t=nz(r.title);return t===nq||t.startsWith(nq)});
     let lists;
     if(bn){
-      lists=await Promise.all([
-        gb("&langRestrict=bn&q="+encodeURIComponent(q)),
-        gb("&q="+encodeURIComponent('intitle:"'+q+'"')),
-        gb("&q="+encodeURIComponent(q)),
-        bnWiki(),ol()
-      ]);
+      // Google allows only so many free searches, so ask it once first and only dig deeper if needed
+      const others=Promise.all([bnWiki(),ol()]);
+      const first=await gb("&q="+encodeURIComponent('intitle:"'+q+'"'));
+      const more=strong(first)||limited?[]:await gb("&q="+encodeURIComponent(q));
+      lists=[first,more,...(await others)];
     }else{
-      lists=await Promise.all([gb("&q="+encodeURIComponent(q))]);
+      lists=[await gb("&q="+encodeURIComponent(q))];
       if(lists[0].length<3)lists.push(await ol());
     }
-    const nq=nz(q),seen=new Set(),out=[];
+    const seen=new Set(),out=[];
     const score=r=>{const t=nz(r.title);return(t===nq?4:t.startsWith(nq)?3:t.includes(nq)?2:nq.includes(t)&&t.length>3?1:0)+(r.cover?0.5:0)+(r.creator?0.3:0)};
     for(const r of lists.flat()){
       const key=nz(r.title)+"|"+nz(String(r.creator).split(" & ")[0]);
       if(seen.has(key))continue;seen.add(key);out.push(r);
     }
     out.sort((a,b)=>score(b)-score(a));
-    return out.slice(0,8);
+    const res=out.slice(0,8);
+    if(!res.length&&limited)throw new Error("LIMIT");
+    if(res.length)try{sessionStorage.setItem(ck,JSON.stringify(res))}catch(e){}
+    return res;
   }
   return [];
 }
@@ -779,35 +735,7 @@ function cover(i,small){
     const col=BOOKCOL[hashStr(i.title)%BOOKCOL.length];
     return `<span class="cv book" style="--bk:${col}"><span class="pages"></span><span class="face"><span class="gen"><span class="orn">✦</span><span class="bt">${esc(i.title)}</span>${i.creator?`<span class="rule"></span><span class="ba">${esc(i.creator)}</span>`:""}</span>${img}</span>${tags}</span>`;
   }
-  const o=objCover(i,img,tags);if(o)return o;
   return `<span class="cv" style="--c:${c.c}">${img}${i.cover?"":`<span class="ph"><b>${esc(i.title)}</b></span>`}${tags}</span>`;
-}
-const GPAL=[["#ff4f8b","#5b2bd8"],["#3ee6ff","#3a56f5"],["#ff8a3d","#c2185b"],["#9b5bff","#2fb7e6"],["#4be3a0","#1d5f8f"],["#ffc83d","#ff4f6b"],["#7c5cff","#ff4f8b"],["#21c7a8","#3a3aa8"]];
-function fit(t,budget,max){
-  const words=String(t||"").split(/\s+/),longest=Math.max(1,...words.map(w=>Array.from(w).length)),total=Array.from(String(t||"")).length;
-  let f=Math.min(max,budget/longest);
-  if(total>24)f=Math.min(f,max*Math.sqrt(24/total)*1.05);
-  return "font-size:"+Math.max(4.5,f).toFixed(2)+"cqw";
-}
-function gpal(t){const p=GPAL[hashStr(t)%GPAL.length];return "--g1:"+p[0]+";--g2:"+p[1]}
-function objCover(i,img,tags){
-  const t=esc(i.title),by=esc(i.creator||""),st=gpal(i.title);
-  if(i.cat==="movie")return `<span class="cv obj movie" style="${st}"><span class="film"></span><span class="ob-face"><span class="gp"><span class="mv-t" style="${fit(i.title,74,12)}">${t}</span>${by?`<span class="mv-c">A film by ${by}</span>`:""}</span>${img}</span>${tags}</span>`;
-  if(i.cat==="series"){
-    const n=i.useSeasons&&i.seasonEps&&i.seasonEps.length?i.seasonEps.length:0;
-    const meta=n?n+(n>1?" seasons":" season"):(+i.total?i.total+" episodes":"Series");
-    return `<span class="cv obj series" style="${st}"><span class="stk s2"></span><span class="stk s1"></span><span class="ob-face"><span class="gp"><span class="sr-t" style="${fit(i.title,100,11)}">${t}</span><span class="sr-m">${meta}</span></span>${img}</span>${tags}</span>`;
-  }
-  if(i.cat==="manga")return `<span class="cv obj manga" style="${st}"><span class="pages"></span><span class="ob-face"><span class="gp"><span class="mg-t" style="${fit(i.title,90,12.5)}">${t}</span><span class="mg-band"><b>${by||"&nbsp;"}</b><span>${esc(i.kind||"Manga")}</span></span></span>${img}</span>${tags}</span>`;
-  if(i.cat==="essay"){
-    const head=i.cover?`<span class="es-img">${img}</span>`:`<span class="es-k">Essay</span>`;
-    return `<span class="cv obj essay"><span class="ob-face"><span class="es">${head}<span class="es-t" style="${fit(i.title,140,10.5)}">${t}</span>${by?`<span class="es-a">${by}</span>`:""}<span class="es-l"></span></span></span>${tags}</span>`;
-  }
-  if(i.cat==="video"){
-    const p=i.status==="completed"||i.status==="reviewed"?100:i.status==="progress"?45:6;
-    return `<span class="cv obj video" style="${st}"><span class="ob-face"><span class="gp"></span>${img}${i.cover?"":`<span class="vt" style="${fit(i.title,115,8.5)}">${t}</span>`}<span class="play"></span><span class="tl"><i style="width:${p}%"></i></span></span>${tags}</span>`;
-  }
-  return "";
 }
 function syncTotal(d){
   if(!cat(d.cat).seasons||!d.useSeasons)return;
@@ -1151,7 +1079,7 @@ $("sheet").addEventListener("click",async e=>{
     readEdit();if(!draft.title){toast("Type a title first");return}
     b.textContent="…";
     try{found=await searchMedia(cat(draft.cat).src,draft.title);if(!found.length)toast("No matches. Just save it manually.")}
-    catch(err){toast("Search failed. Check your internet.")}
+    catch(err){toast(err&&err.message==="LIMIT"?"Google’s free book search is busy right now. Try again in a while, or type it in.":"Search failed. Check your internet.")}
     const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;return;
   }
   if(b.dataset.pick!=null){
