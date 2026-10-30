@@ -424,8 +424,37 @@ const nid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 const ls={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 
 function toast(t){const el=$("toast");el.textContent=t;el.style.display="block";clearTimeout(toast.h);toast.h=setTimeout(()=>el.style.display="none",2400)}
-function saveLocal(){if(readOnly)return;ls.set(KEY,JSON.stringify(all))}
-function loadLocal(){try{all=JSON.parse(ls.get(KEY)||"[]")}catch(e){all=[]}if(normAll(all))ls.set(KEY,JSON.stringify(all))}
+/* ---- storage: IndexedDB (hundreds of MB) with localStorage (5 MB) as fallback ---- */
+let idb=null,saving=Promise.resolve(),mineCache=[];
+function idbOpen(){return new Promise(res=>{try{const r=indexedDB.open("omishelf",1);r.onupgradeneeded=()=>r.result.createObjectStore("kv");r.onsuccess=()=>res(r.result);r.onerror=()=>res(null);r.onblocked=()=>res(null)}catch(e){res(null)}})}
+function idbGet(k){return new Promise(res=>{if(!idb)return res(undefined);try{const q=idb.transaction("kv").objectStore("kv").get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>res(undefined)}catch(e){res(undefined)}})}
+function idbPut(k,v){return new Promise(res=>{if(!idb)return res(false);try{const t=idb.transaction("kv","readwrite");t.objectStore("kv").put(v,k);t.oncomplete=()=>res(true);t.onerror=()=>res(false);t.onabort=()=>res(false)}catch(e){res(false)}})}
+function writeData(snap){
+  if(!idb){ls.set(KEY,snap);return Promise.resolve()}
+  saving=saving.then(async()=>{
+    if(await idbPut(KEY,snap)){try{localStorage.removeItem(KEY)}catch(e){}}
+    else ls.set(KEY,snap);
+  });
+  return saving;
+}
+function saveLocal(){if(readOnly)return;writeData(JSON.stringify(all))}
+async function readData(){
+  if(!idb)idb=await idbOpen();
+  let raw=await idbGet(KEY),fromLS=false;
+  if(raw==null){raw=ls.get(KEY);fromLS=raw!=null}
+  return {raw,fromLS};
+}
+async function loadLocal(){
+  const {raw,fromLS}=await readData();
+  try{all=JSON.parse(raw||"[]")}catch(e){all=[]}
+  const ch=normAll(all);
+  if(ch||(fromLS&&idb))saveLocal();   // first run on the new storage: move everything over
+  try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+}
+async function loadMine(){
+  const {raw}=await readData();
+  try{mineCache=JSON.parse(raw||"[]")}catch(e){mineCache=[]}
+}
 
 async function put(item){
   item.updated=Date.now();
@@ -1054,7 +1083,7 @@ function detail(id){
     ${readOnly?(hasMine(i)?`<div class="actions" style="margin-top:10px"><button class="btn" disabled style="flex:1;opacity:.7">✓ Already on your shelf</button></div>`:`<div class="actions" style="margin-top:10px"><button class="btn main" id="copyBtn" data-id="${esc(i.id)}">+ Add to my shelf</button></div>`):
       `<div class="actions" style="margin-top:12px"><button class="btn ${i.status==="completed"?"":"main"}" id="pvEdit" data-id="${esc(i.id)}" style="flex:1">Edit</button>${i.status==="completed"?`<button class="btn main" id="pvReview" data-id="${esc(i.id)}" style="flex:1">Add a review</button>`:""}</div>`}`);
 }
-function mineList(){try{return JSON.parse(ls.get(KEY)||"[]")}catch(e){return[]}}
+function mineList(){return mineCache}
 function hasMine(i){
   const t=String(i.title||"").trim().toLowerCase();
   return mineList().some(x=>x&&!x.deleted&&x.title&&x.cat===i.cat&&x.title.trim().toLowerCase()===t);
@@ -1066,7 +1095,7 @@ function copyToMine(i){
   if(i.useSeasons&&Array.isArray(i.seasonEps)&&i.seasonEps.length){
     c.useSeasons=true;c.sv=2;c.seasonEps=i.seasonEps.map(v=>+v||0);c.ongoing=!!i.ongoing;c.season=1;c.seasons=c.seasonEps.length;c.total=c.seasonEps[0]||0;
   }
-  mine.push(c);ls.set(KEY,JSON.stringify(mine));
+  mine.push(c);writeData(JSON.stringify(mine));
 }
 $("sheet").addEventListener("click",e=>{
   const eb=e.target.closest("#pvEdit,#pvReview");
@@ -1155,10 +1184,10 @@ function shrink(file){
   return new Promise((res,rej)=>{
     const u=URL.createObjectURL(file),im=new Image();
     im.onload=()=>{
-      const k=Math.min(1,420/Math.max(im.width,1),630/Math.max(im.height,1));
+      const k=Math.min(1,360/Math.max(im.width,1),540/Math.max(im.height,1));
       const c=document.createElement("canvas");c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));
       c.getContext("2d").drawImage(im,0,0,c.width,c.height);URL.revokeObjectURL(u);
-      res(c.toDataURL("image/jpeg",.78));
+      res(c.toDataURL("image/jpeg",.75));
     };
     im.onerror=rej;im.src=u;
   });
@@ -1335,10 +1364,9 @@ applyTheme(ls.get(KTHEME)||"dark");
 if(readOnly){
   document.body.classList.add("ro");
   $("addBtn").hidden=true;$("syncBtn").hidden=true;$("banner").hidden=false;
-  render();loadShared();
+  render();loadMine().then(()=>{if(draft==null)render()});loadShared();
 }else{
-  loadLocal();render();
-  if(tok())sync();else dot("");
+  loadLocal().then(()=>{render();if(tok())sync();else dot("")});
 }
 </script>
 </body>
