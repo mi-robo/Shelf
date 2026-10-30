@@ -896,6 +896,8 @@ function drawEdit(){
     <div class="finder"><input id="eTitle" value="${esc(d.title)}" autocomplete="off" placeholder="e.g. Vinland Saga">${c.src?`<button class="go" id="findBtn">Find</button>`:""}</div>
     ${c.src?`<div class="hint">${c.id==="essay"?"Find searches Substack first, then other essays. Pasting the article link below also fills everything in.":"Tap Find to grab the cover and total "+(c.unit==="Ep"?"episodes":c.unit==="Ch"?"chapters":c.unit==="Pg"?"pages":"info")+"."}</div>`:""}
     <div class="results" id="results">${found.map((r,k)=>`<button class="res" data-pick="${k}">${r.cover?`<img src="${esc(r.cover)}" alt="" loading="lazy" referrerpolicy="no-referrer">`:`<span class="noimg"></span>`}<span>${esc(r.title)}${r.year?" ("+esc(r.year)+")":""}</span>${r.sub?`<span style="color:var(--muted);font-weight:500">${esc(r.sub)}</span>`:""}</button>`).join("")}</div>
+    ${c.id==="book"?`<div class="seg" style="margin-top:8px"><button data-ext="rokomari">Search on Rokomari ↗</button><button data-ext="goodreads">Goodreads ↗</button></div>
+    <div class="hint">Found it there? Copy the book’s link, paste it in <b>Link</b> below, and the title, writer and cover fill in.</div>`:""}
   </div>
   <div class="f"><label for="eBy">Creator (writer, director, channel)</label><input id="eBy" value="${esc(d.creator)}" autocomplete="off" placeholder="e.g. Makoto Yukimura"></div>
   ${KINDS[c.id]?`<div class="f"><span class="lbl">Type</span><div class="seg">${KINDS[c.id].map(t=>`<button data-k="kind" data-v="${t}" aria-pressed="${d.kind===t}">${t}</button>`).join("")}</div></div>`:""}
@@ -987,6 +989,11 @@ $("sheet").addEventListener("click",async e=>{
     if(k==="rating"){const n=+v;draft.rating=draft.rating===n?0:n}
     if(k==="fav")draft.fav=!draft.fav;
     const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;return;
+  }
+  if(b.dataset.ext){
+    readEdit();const t=encodeURIComponent((draft.title||"").trim());
+    const url=b.dataset.ext==="rokomari"?"https://www.rokomari.com/search?term="+t+"&search_type=ALL":"https://www.goodreads.com/search?q="+t;
+    window.open(url,"_blank","noopener");return;
   }
   if(b.dataset.sapply){
     readEdit();const st=$("sheet").scrollTop;drawEdit();$("sheet").scrollTop=st;toast("Saved");return;
@@ -1128,6 +1135,17 @@ async function fetchMeta(link){
       const x=await jget("https://noembed.com/embed?url="+encodeURIComponent(link));
       if(!x.error){out.title=x.title||"";out.creator=out.creator||x.author_name||"";if(x.thumbnail_url&&!out.cover)out.cover=x.thumbnail_url;out.where=out.where||x.provider_name||""}
     }catch(e){}
+  }
+  if(/rokomari/.test(host)&&out.title){
+    let t=out.title.replace(/\s*[-|–]\s*rokomari(\.com)?.*$/i,"").trim();
+    const m=t.match(/^(.*?)\s*[:：]\s*(.+)$/);
+    if(m&&!out.creator){out.title=m[1].trim();out.creator=m[2].trim()}else out.title=t;
+    out.where="Rokomari";
+  }
+  if(/goodreads/.test(host)&&out.title){
+    const m=out.title.replace(/\s*\|\s*Goodreads.*$/i,"").match(/^(.*) by (.+)$/);
+    if(m){out.title=m[1].trim();if(!out.creator)out.creator=m[2].trim()}
+    out.where=out.where==="Goodreads"?"":out.where;
   }
   return out;
 }
