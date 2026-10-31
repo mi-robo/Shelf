@@ -20,7 +20,7 @@
   padding-top:env(safe-area-inset-top,0px);
   padding-bottom:env(safe-area-inset-bottom,0px);
   --bg:#0c0a14; --bg2:#14111f; --card:#1b1729; --card2:#252036; --line:#2f2944;
-  --text:#f3f0ff; --muted:#9c94b8; --pink:#ff4f8b; --cyan:#3ee6ff; --gold:#ffc83d; --green:#4be3a0; --red:#ff6b7a;
+  --text:#f3f0ff; --muted:#9c94b8; --want:#cdc7e2; --pink:#ff4f8b; --cyan:#3ee6ff; --gold:#ffc83d; --green:#4be3a0; --red:#ff6b7a;
   --grad:linear-gradient(90deg,var(--pink),var(--cyan));
   --head:"Unbounded","Manrope",system-ui,sans-serif;
   --body:"Manrope",system-ui,-apple-system,"Segoe UI",sans-serif;
@@ -28,7 +28,7 @@
 }
 :root[data-theme="light"]{
   --bg:#f4f2fb; --bg2:#ebe7f7; --card:#ffffff; --card2:#efecf8; --line:#ddd7ee;
-  --text:#191428; --muted:#6a6385; --pink:#e3266c; --cyan:#0a9fc0; --gold:#c48a00; --green:#139463; --red:#d33a4b;
+  --text:#191428; --muted:#6a6385; --want:#5a5470; --pink:#e3266c; --cyan:#0a9fc0; --gold:#c48a00; --green:#139463; --red:#d33a4b;
   color-scheme:light;
 }
 html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
@@ -131,7 +131,7 @@ header{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:col
 .tile .tt{font-weight:800;font-size:14px;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .tile .mm{font-size:12.5px;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .st{font-weight:800}
-.st.want{color:var(--muted)} .st.progress{color:var(--cyan)} .st.completed{color:var(--green)} .st.reviewed{color:var(--gold)} .st.dropped{color:var(--red)}
+.st.want{color:var(--want)} .st.progress{color:var(--cyan)} .st.completed{color:var(--green)} .st.reviewed{color:var(--gold)} .st.dropped{color:var(--red)}
 .empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:50px 10px}
 .empty b{display:block;font-family:var(--head);color:var(--text);font-size:17px;margin-bottom:6px}
 
@@ -374,6 +374,7 @@ function fixItem(i){
   if(!i)return false;
   if(i.cat==="anime"){i.cat="series";i.kind=i.kind||"Anime";i.updated=Date.now();return true}
   if(i.cat==="doc"){i.cat="movie";i.updated=Date.now();return true}
+  if(i.status==="reviewed"&&!String(i.note||"").trim()){i.status="completed";i.updated=Date.now();return true}
   return false;
 }
 function normAll(a){let ch=false;if(Array.isArray(a))a.forEach(i=>{if(fixItem(i))ch=true});return ch}
@@ -1145,7 +1146,9 @@ $("sheet").addEventListener("click",async e=>{
     if(!d.title){toast("Add a title first");$("eTitle").focus();return}
     if(d.total&&d.cur>=d.total&&d.status==="progress"&&!(cat(d.cat).seasons&&d.useSeasons&&((d.season||1)<(d.seasons||0)||d.ongoing)))d.status="completed";
     if(d.cur>0&&d.status==="want")d.status="progress";
-    if(d.rating&&d.status==="completed")d.status="reviewed";
+    const hasNote=!!(d.note||"").trim();
+    if(hasNote&&d.status==="completed")d.status="reviewed";
+    if(!hasNote&&d.status==="reviewed"){d.status="completed";setTimeout(()=>toast("Saved as Completed. Write a review to mark it Reviewed."),50)}
     if(d.status==="completed"||d.status==="reviewed"){if(!d.doneAt)d.doneAt=Date.now()}else d.doneAt=0;
     if((d.status==="progress"||d.cur>0)&&!d.startedAt)d.startedAt=Date.now();
     delete d._new;delete d.curBy;closeSheet();put(d);toast("Saved");
