@@ -831,8 +831,11 @@ function pct(i){return i.total?Math.min(100,Math.round((i.cur||0)/i.total*100)):
 
 function renderRail(){
   const prog=live().filter(i=>i.status==="progress").sort((a,b)=>b.updated-a.updated);
+  if(holdRail&&Date.now()<holdUntil)byHold(prog,holdRail);
+  const keepX=$("rail").scrollLeft;
   $("contSec").hidden=!prog.length;
   $("contCount").textContent=prog.length?prog.length+" going":"";
+  requestAnimationFrame(()=>{$("rail").scrollLeft=keepX});
   $("rail").innerHTML=prog.map(i=>{
     const c=cat(i.cat);
     const open=safe(i.link)?`<a class="openl" href="${esc(safe(i.link))}" target="_blank" rel="noopener" aria-label="Open link">↗</a>`:"";
@@ -865,7 +868,7 @@ function renderGrid(){
   const s=$("sort").value;
   if(s==="rating")r.sort((a,b)=>(b.rating||0)-(a.rating||0)||b.updated-a.updated);
   else if(s==="title")r.sort((a,b)=>a.title.localeCompare(b.title));
-  else r.sort((a,b)=>b.updated-a.updated);
+  else{r.sort((a,b)=>b.updated-a.updated);if(holdGrid&&Date.now()<holdUntil)byHold(r,holdGrid)}
   $("grid").innerHTML=r.length?r.map(i=>`<div class="tile">
       <button data-a="edit" data-id="${i.id}" style="display:block;width:100%">${cover(i)}</button>
       <div class="trow"><div class="tt">${esc(i.title)}</div><button class="fav ${i.fav?"on":""}" data-a="fav" data-id="${i.id}" aria-label="Favorite" aria-pressed="${!!i.fav}">${i.fav?"♥":"♡"}</button></div>
@@ -1385,12 +1388,24 @@ $("sheet").addEventListener("click",async e=>{
 });
 
 /* ================= events ================= */
+let holdUntil=0,holdRail=null,holdGrid=null,holdT=null;
+function freezeOrder(){
+  if(Date.now()>holdUntil){
+    holdRail=[...$("rail").querySelectorAll(".cont .t[data-id]")].map(b=>b.dataset.id);
+    holdGrid=[...$("grid").querySelectorAll('.tile [data-a="edit"][data-id]')].map(b=>b.dataset.id);
+  }
+  holdUntil=Date.now()+3000;
+  clearTimeout(holdT);
+  holdT=setTimeout(()=>{holdUntil=0;holdRail=holdGrid=null;render()},3000);
+}
+const byHold=(list,ids)=>{const ix=id=>ids.indexOf(id);return list.sort((a,b)=>ix(a.id)-ix(b.id))};
 async function quick(e){
   const b=e.target.closest("[data-a]");if(!b)return;
   const it=all.find(x=>x.id===b.dataset.id);if(!it)return;
   const a=b.dataset.a;
   if(a==="edit"){detail(it.id);return}
   if(readOnly)return;
+  if(a==="plus"||a==="minus"||a==="fav"||a==="finish")freezeOrder();
   if(a==="finish"){
     if(b.dataset.sure!=="1"){
       b.dataset.sure="1";b.classList.add("sure");b.textContent="Sure?";
