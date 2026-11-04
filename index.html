@@ -1043,7 +1043,7 @@ function drawEdit(){
     const sn=d.season||1,last=hasSE&&sn===d.seasonEps.length,AW=c.unit==="Ch"?"Ongoing":"Airing",UW=c.unit==="Ch"?"Chapters":"Episodes";
     const air=last&&d.ongoing&&!(+d.seasonEps[sn-1]);
     return `<div class="two">
-    <div class="f"><label for="eCur">${c.unit} now${hasSE?" (in S"+sn+")":""}</label><div class="stepper"><button data-step="-1" aria-label="Minus one">−</button><input id="eCur" type="number" inputmode="numeric" min="0" value="${d.cur||0}"><button data-step="1" aria-label="Plus one">+</button></div></div>
+    <div class="f"><label for="eCur">${c.unit} completed${hasSE?" (in S"+sn+")":""}</label><div class="stepper"><button data-step="-1" aria-label="Minus one">−</button><input id="eCur" type="number" inputmode="numeric" min="0" value="${d.cur||0}"><button data-step="1" aria-label="Plus one">+</button></div></div>
     ${hasSE?`<div class="f"><label for="eSeasonTot">${UW} in S${sn}</label>
       ${air?`<div class="seasontot">${AW}</div>`:`<input id="eSeasonTot" type="number" inputmode="numeric" min="0" value="${+d.seasonEps[sn-1]||""}" placeholder="Count">`}
       ${last?`<button type="button" class="chk" data-k="ongoing" role="checkbox" aria-checked="${!!d.ongoing}"><i>${d.ongoing?"✓":""}</i><span>${AW}</span></button>`:""}</div>`
